@@ -1,0 +1,87 @@
+"""Frozen tool schemas. additionalProperties is false on inputs and outputs."""
+
+from letterbox_mcp.constants import (
+    LETTER_STATES,
+    LETTER_TYPES,
+    MAX_BODY_CHARS_MAX,
+    MAX_BODY_CHARS_MIN,
+)
+
+LETTER_REF_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"},
+        "from": {"type": "string"},
+        "to": {"type": "string"},
+        "type": {"type": "string", "enum": list(LETTER_TYPES)},
+        "state": {"type": "string", "enum": list(LETTER_STATES)},
+        "age": {"type": "string"},
+        "uri": {"type": "string"},
+    },
+    "required": ["id", "from", "to", "type", "state", "age", "uri"],
+    "additionalProperties": False,
+}
+
+CHECK_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": False,
+}
+
+CHECK_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "letters": {"type": "array", "items": LETTER_REF_SCHEMA},
+        "truncated": {"type": "boolean"},
+        "remaining": {"type": "integer", "minimum": 0},
+    },
+    "required": ["letters", "truncated", "remaining"],
+    "additionalProperties": False,
+}
+
+READ_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "include_body": {"type": "boolean"},
+        "max_body_chars": {
+            "type": "integer",
+            "minimum": MAX_BODY_CHARS_MIN,
+            "maximum": MAX_BODY_CHARS_MAX,
+        },
+    },
+    "required": ["id"],
+    "additionalProperties": False,
+}
+
+READ_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **LETTER_REF_SCHEMA["properties"],
+        "body": {"type": "string"},
+        "truncated": {"type": "boolean"},
+    },
+    "required": list(LETTER_REF_SCHEMA["required"]),
+    "additionalProperties": False,
+}
+
+# Stage two: freeze annotations now; the tool is not registered in stage one.
+FILE_TOOL_ANNOTATIONS = {
+    "readOnlyHint": False,
+    "destructiveHint": True,
+    "idempotentHint": True,
+}
+
+CHECK_TOOL_ANNOTATIONS = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": False,
+}
+
+READ_TOOL_ANNOTATIONS = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": True,
+    "openWorldHint": False,
+}
