@@ -1,5 +1,17 @@
+import pytest
+
 from tests.conftest import live_id
 from tests.harness import AGENT, write_letter
+
+# Unicode characters that str.splitlines() treats as line breaks, besides \n/\r.
+_SPLITLINES_CONTROLS = (
+    "\u000b",  # VT
+    "\u000c",  # FF
+    "\u001c",  # FS
+    "\u001d",  # GS
+    "\u001e",  # RS
+    "\u0085",  # NEL
+)
 
 
 def _init(client):
@@ -130,3 +142,66 @@ def test_unparseable_files_are_omitted(client, mailbox):
     assert missing_to not in ids
     assert "has spaces" not in ids
     assert _read(client, missing_from)["result"]["isError"] is True
+
+
+@pytest.mark.parametrize("control", _SPLITLINES_CONTROLS)
+def test_type_splitlines_control_fails_both_tools(client, mailbox, control):
+    ident = live_id(f"ts{ord(control):04x}")
+    write_letter(mailbox, ident, "a", type_name=f"ab{control}cd")
+    _init(client)
+    _assert_loud_both(client, ident)
+
+
+def test_type_u0080_still_fails_both_tools(client, mailbox):
+    ident = live_id("t80")
+    write_letter(mailbox, ident, "a", type_name="ab\u0080cd")
+    _init(client)
+    _assert_loud_both(client, ident)
+
+
+def test_id_with_nel_does_not_masquerade(client, mailbox):
+    """U+0085 in id is not a line break here; the full value fails the id grammar."""
+    inbox = mailbox / AGENT / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    prefix = "2026-09-19T060000-beta-info-pre"
+    (inbox / "nel-id.md").write_text(
+        f"---\nid: {prefix}\u0085tail\nfrom: beta\nto: {AGENT}\ntype: info\n---\nbody\n",
+        encoding="utf-8",
+    )
+    keep = live_id("idkeep")
+    write_letter(mailbox, keep, "ok")
+    _init(client)
+    result = _check(client)
+    structured = result["result"]["structuredContent"]
+    assert result["result"]["isError"] is False
+    ids = {item["id"] for item in structured["letters"]}
+    assert keep in ids
+    assert prefix not in ids
+    assert f"{prefix}\u0085tail" not in ids
+    read = _read(client, prefix)
+    assert read["result"]["isError"] is True
+    assert "unrepresentable type" not in "".join(
+        block.get("text", "") for block in read["result"]["content"]
+    )
+
+
+def test_from_and_to_carry_nel_verbatim(client, mailbox):
+    ident = live_id("fromnel")
+    inbox = mailbox / AGENT / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / f"{ident}.md").write_text(
+        f"---\nid: {ident}\nfrom: ab\u0085cd\nto: xy\u000bcd\ntype: info\n---\nbody\n",
+        encoding="utf-8",
+    )
+    _init(client)
+    result = _check(client)
+    assert result["result"]["isError"] is False
+    structured = result["result"]["structuredContent"]
+    assert structured["remaining"] == 0
+    match = next(item for item in structured["letters"] if item["id"] == ident)
+    assert match["from"] == "ab\u0085cd"
+    assert match["to"] == "xy\u000bcd"
+    read = _read(client, ident)
+    assert read["result"]["isError"] is False
+    assert read["result"]["structuredContent"]["from"] == "ab\u0085cd"
+    assert read["result"]["structuredContent"]["to"] == "xy\u000bcd"

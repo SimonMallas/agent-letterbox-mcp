@@ -248,11 +248,11 @@ def _parse_letter(
     header = match.group(1).decode("utf-8", errors="replace")
     body = match.group(2).decode("utf-8", errors="replace")
     fields: dict[str, str] = {}
-    for line in header.splitlines():
+    for line in _frontmatter_lines(header):
         if ":" not in line:
             continue
         key, value = line.split(":", 1)
-        fields[key.strip()] = value.strip()
+        fields[_field_strip(key)] = _field_strip(value)
     ident = fields.get("id", "")
     from_ = fields.get("from", "")
     to = fields.get("to", "")
@@ -282,6 +282,16 @@ def _parse_letter(
         stale=age_s > STALE_SECONDS,
         type_unrepresentable=_type_unrepresentable(kind),
     )
+
+
+def _frontmatter_lines(header: str) -> list[str]:
+    """Split on \\n / \\r\\n only. Unicode line boundaries stay inside the field."""
+    return header.replace("\r\n", "\n").split("\n")
+
+
+def _field_strip(value: str) -> str:
+    """Strip ASCII space and tab only, so C0/C1 in the value are preserved."""
+    return value.strip(" \t")
 
 
 def _type_unrepresentable(kind: str) -> bool:
