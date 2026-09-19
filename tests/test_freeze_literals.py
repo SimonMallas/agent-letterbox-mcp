@@ -1,4 +1,8 @@
-"""Pin freeze document literals. Do not import letterbox_mcp.constants."""
+"""Pin freeze document literals; relate the UCD marker to the runtime separately.
+
+The pin test must not import the constants it checks. The drift test must import
+BIDI_CONTROL_SOURCE_UCD, because its job is to relate that marker to the runtime.
+"""
 
 import ast
 from pathlib import Path
@@ -53,12 +57,27 @@ def _ucd_parts(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split("."))
 
 
+def _ucd_not_newer(runtime: str, source: str) -> bool:
+    left = _ucd_parts(runtime)
+    right = _ucd_parts(source)
+    width = max(len(left), len(right))
+    left += (0,) * (width - len(left))
+    right += (0,) * (width - len(right))
+    return left <= right
+
+
 def test_runtime_ucd_is_not_newer_than_bidi_source():
     import unicodedata
 
-    runtime = _ucd_parts(unicodedata.unidata_version)
-    source = _ucd_parts("16.0.0")
-    width = max(len(runtime), len(source))
-    runtime += (0,) * (width - len(runtime))
-    source += (0,) * (width - len(source))
-    assert runtime <= source
+    from letterbox_mcp.constants import BIDI_CONTROL_SOURCE_UCD
+
+    assert _ucd_not_newer(unicodedata.unidata_version, BIDI_CONTROL_SOURCE_UCD)
+
+
+def test_drift_check_fails_when_marker_is_older_than_runtime():
+    import unicodedata
+
+    assert not _ucd_not_newer(unicodedata.unidata_version, "9.0.0")
+    assert _ucd_not_newer("14.0.0", "16.0.0")
+    assert _ucd_not_newer("16.0.0", "16.0.0")
+    assert not _ucd_not_newer("17.0.0", "16.0.0")
