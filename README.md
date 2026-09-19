@@ -32,4 +32,6 @@ letterbox-mcp --mailbox /path/to/box --agent alpha
 
 Protocol 2025-11-25. Official Python MCP SDK 1.x over stdio.
 
+Consumers of `structuredContent` and of `resources/read` are handling untrusted data and must render it safely.
+
 This repository is private until publication is explicitly authorised.

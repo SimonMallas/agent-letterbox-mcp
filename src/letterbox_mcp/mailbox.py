@@ -29,7 +29,7 @@ class Letter:
     size_bytes: int
     activity_epoch: int
     stale: bool
-    type_unrepresentable: bool = False
+    metadata_unrepresentable: bool = False
 
     def as_ref(self) -> dict[str, str]:
         return {
@@ -280,7 +280,11 @@ def _parse_letter(
         size_bytes=size_bytes,
         activity_epoch=activity,
         stale=age_s > STALE_SECONDS,
-        type_unrepresentable=_type_unrepresentable(kind),
+        metadata_unrepresentable=(
+            _metadata_unrepresentable(kind)
+            or _metadata_unrepresentable(from_)
+            or _metadata_unrepresentable(to)
+        ),
     )
 
 
@@ -294,12 +298,14 @@ def _field_strip(value: str) -> str:
     return value.strip(" \t")
 
 
-def _type_unrepresentable(kind: str) -> bool:
-    if len(kind) > TYPE_MAX_CODEPOINTS:
+def _metadata_unrepresentable(value: str) -> bool:
+    if len(value) > TYPE_MAX_CODEPOINTS:
         return True
-    for char in kind:
+    for char in value:
         code = ord(char)
         if code <= 0x1F or 0x7F <= code <= 0x9F:
+            return True
+        if char in "\u2028\u2029":
             return True
     return False
 

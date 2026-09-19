@@ -217,15 +217,15 @@ def _guard_tool_output(name: str, result: types.CallToolResult) -> types.CallToo
     return result
 
 
-def _unrepresentable_type_error(letter_id: str) -> types.CallToolResult:
-    return _tool_error(f"unrepresentable type on {letter_id}")
+def _unrepresentable_metadata_error(letter_id: str) -> types.CallToolResult:
+    return _tool_error(f"unrepresentable metadata on {letter_id}")
 
 
 def _do_check(mailbox: Mailbox) -> types.CallToolResult:
     open_letters = mailbox.list_open()
-    bad = next((item for item in open_letters if item.type_unrepresentable), None)
+    bad = next((item for item in open_letters if item.metadata_unrepresentable), None)
     if bad is not None:
-        return _unrepresentable_type_error(bad.id)
+        return _unrepresentable_metadata_error(bad.id)
     refs, table, truncated, remaining = render_check(open_letters)
     structured = {"letters": refs, "truncated": truncated, "remaining": remaining}
     enforce_output_schema(CHECK_OUTPUT_SCHEMA, structured)
@@ -243,8 +243,8 @@ def _do_read(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResul
     letter = mailbox.get(letter_id, inbox_only=True)
     if letter is None:
         return _tool_error(unknown_id_tool_text())
-    if letter.type_unrepresentable:
-        return _unrepresentable_type_error(letter.id)
+    if letter.metadata_unrepresentable:
+        return _unrepresentable_metadata_error(letter.id)
     include_body = bool(arguments.get("include_body", False))
     max_body_chars = arguments.get("max_body_chars")
     if max_body_chars is None and include_body:

@@ -180,28 +180,97 @@ def test_id_with_nel_does_not_masquerade(client, mailbox):
     assert f"{prefix}\u0085tail" not in ids
     read = _read(client, prefix)
     assert read["result"]["isError"] is True
-    assert "unrepresentable type" not in "".join(
+    assert "unrepresentable metadata" not in "".join(
         block.get("text", "") for block in read["result"]["content"]
     )
 
 
-def test_from_and_to_carry_nel_verbatim(client, mailbox):
-    ident = live_id("fromnel")
+def test_from_esc_fails_both_tools(client, mailbox):
+    ident = live_id("fromesc")
     inbox = mailbox / AGENT / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
     (inbox / f"{ident}.md").write_text(
-        f"---\nid: {ident}\nfrom: ab\u0085cd\nto: xy\u000bcd\ntype: info\n---\nbody\n",
+        f"---\nid: {ident}\nfrom: ab\x1bcd\nto: {AGENT}\ntype: info\n---\nbody\n",
         encoding="utf-8",
     )
     _init(client)
+    _assert_loud_both(client, ident)
+
+
+def test_to_nel_fails_both_tools(client, mailbox):
+    ident = live_id("tonel")
+    inbox = mailbox / AGENT / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / f"{ident}.md").write_text(
+        f"---\nid: {ident}\nfrom: beta\nto: xy\u0085cd\ntype: info\n---\nbody\n",
+        encoding="utf-8",
+    )
+    _init(client)
+    _assert_loud_both(client, ident)
+
+
+def test_from_65_codepoints_fails_both_tools(client, mailbox):
+    ident = live_id("from65")
+    write_letter(mailbox, ident, "a", from_agent="f" * 65)
+    _init(client)
+    _assert_loud_both(client, ident)
+
+
+def test_to_65_codepoints_fails_both_tools(client, mailbox):
+    ident = live_id("to65")
+    write_letter(mailbox, ident, "a", to_agent="z" * 65)
+    _init(client)
+    _assert_loud_both(client, ident)
+
+
+def test_from_u2028_fails_both_tools(client, mailbox):
+    ident = live_id("ls2028")
+    inbox = mailbox / AGENT / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / f"{ident}.md").write_text(
+        f"---\nid: {ident}\nfrom: ab\u2028cd\nto: {AGENT}\ntype: info\n---\nbody\n",
+        encoding="utf-8",
+    )
+    _init(client)
+    _assert_loud_both(client, ident)
+
+
+def test_from_u2029_fails_both_tools(client, mailbox):
+    ident = live_id("ps2029")
+    inbox = mailbox / AGENT / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / f"{ident}.md").write_text(
+        f"---\nid: {ident}\nfrom: ab\u2029cd\nto: {AGENT}\ntype: info\n---\nbody\n",
+        encoding="utf-8",
+    )
+    _init(client)
+    _assert_loud_both(client, ident)
+
+
+def test_check_table_has_no_controls_or_line_separators(client, mailbox):
+    write_letter(mailbox, live_id("clean"), "ok")
+    _init(client)
     result = _check(client)
-    assert result["result"]["isError"] is False
-    structured = result["result"]["structuredContent"]
-    assert structured["remaining"] == 0
-    match = next(item for item in structured["letters"] if item["id"] == ident)
-    assert match["from"] == "ab\u0085cd"
-    assert match["to"] == "xy\u000bcd"
-    read = _read(client, ident)
+    table = result["result"]["content"][0]["text"]
+    for code in list(range(0x00, 0x20)) + list(range(0x7F, 0xA0)) + [0x2028, 0x2029]:
+        if code in (0x09, 0x0A):  # tab/LF are table structure
+            continue
+        assert chr(code) not in table
+
+
+def test_body_esc_is_readable_and_json_escaped(client, mailbox):
+    ident = live_id("bodyesc")
+    write_letter(mailbox, ident, "hello\x1bworld")
+    _init(client)
+    check = _check(client)
+    assert check["result"]["isError"] is False
+    read = client.request(
+        "tools/call",
+        {"name": "letterbox_read", "arguments": {"id": ident, "include_body": True}},
+    )
     assert read["result"]["isError"] is False
-    assert read["result"]["structuredContent"]["from"] == "ab\u0085cd"
-    assert read["result"]["structuredContent"]["to"] == "xy\u000bcd"
+    structured = read["result"]["structuredContent"]
+    assert "\x1b" in structured["body"]
+    text = next(block["text"] for block in read["result"]["content"] if block.get("type") == "text")
+    assert "\x1b" not in text
+    assert "\\u001b" in text
