@@ -2,7 +2,6 @@
 
 from letterbox_mcp.constants import (
     LETTER_STATES,
-    LETTER_TYPES,
     MAX_BODY_CHARS_MAX,
     MAX_BODY_CHARS_MIN,
 )
@@ -13,7 +12,7 @@ LETTER_REF_SCHEMA = {
         "id": {"type": "string"},
         "from": {"type": "string"},
         "to": {"type": "string"},
-        "type": {"type": "string", "enum": list(LETTER_TYPES)},
+        "type": {"type": "string"},
         "state": {"type": "string", "enum": list(LETTER_STATES)},
         "age": {"type": "string"},
         "uri": {"type": "string"},

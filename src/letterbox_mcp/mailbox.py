@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from letterbox_mcp.constants import LETTER_TYPES, STALE_SECONDS
+from letterbox_mcp.constants import STALE_SECONDS, TYPE_MAX_CODEPOINTS
 from letterbox_mcp.ids import is_letter_id, letter_uri
 
 _FRONTMATTER_RE = re.compile(
@@ -29,6 +29,7 @@ class Letter:
     size_bytes: int
     activity_epoch: int
     stale: bool
+    type_unrepresentable: bool = False
 
     def as_ref(self) -> dict[str, str]:
         return {
@@ -256,7 +257,7 @@ def _parse_letter(
     from_ = fields.get("from", "")
     to = fields.get("to", "")
     kind = fields.get("type", "")
-    if not is_letter_id(ident) or kind not in LETTER_TYPES or not from_ or not to:
+    if not is_letter_id(ident) or not from_ or not to:
         return None
     if folder == "processed":
         state = "processed"
@@ -279,7 +280,18 @@ def _parse_letter(
         size_bytes=size_bytes,
         activity_epoch=activity,
         stale=age_s > STALE_SECONDS,
+        type_unrepresentable=_type_unrepresentable(kind),
     )
+
+
+def _type_unrepresentable(kind: str) -> bool:
+    if len(kind) > TYPE_MAX_CODEPOINTS:
+        return True
+    for char in kind:
+        code = ord(char)
+        if code <= 0x1F or 0x7F <= code <= 0x9F:
+            return True
+    return False
 
 
 def _letter_epoch(ident: str, mtime: int) -> int:

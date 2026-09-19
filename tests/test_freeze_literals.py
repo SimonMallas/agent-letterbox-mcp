@@ -31,3 +31,4 @@ def test_freeze_literals_match_document():
     assert values["RESOURCE_BYTE_CEILING"] == 1048576
     assert values["JSONRPC_TOO_LARGE"] == -32000
     assert values["JSONRPC_NOT_FOUND"] == -32002
+    assert values["TYPE_MAX_CODEPOINTS"] == 64

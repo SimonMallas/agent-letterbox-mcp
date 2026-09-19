@@ -86,19 +86,20 @@ def write_letter(
     *,
     from_agent: str = "beta",
     to_agent: str = AGENT,
-    type_name: str = "info",
+    type_name: str | None = "info",
     folder: str = "inbox",
     acked: bool = False,
     extra_bytes: int | None = None,
 ) -> Path:
     dest = mailbox / AGENT / folder
     dest.mkdir(parents=True, exist_ok=True)
+    type_line = "" if type_name is None else f"type: {type_name}\n"
     header = (
         f"---\n"
         f"id: {ident}\n"
         f"from: {from_agent}\n"
         f"to: {to_agent}\n"
-        f"type: {type_name}\n"
+        f"{type_line}"
         f"re:\n"
         f"priority: next\n"
         f"requires_ack: {'true' if acked else 'false'}\n"

@@ -1,7 +1,7 @@
 from tests.conftest import live_id
 from tests.harness import write_letter
 from letterbox_mcp.constants import LETTER_TYPES
-from letterbox_mcp.schemas import FILE_TOOL_ANNOTATIONS
+from letterbox_mcp.schemas import FILE_TOOL_ANNOTATIONS, LETTER_REF_SCHEMA
 
 
 def _init(client):
@@ -39,6 +39,7 @@ def test_enum_exhaustiveness_type_set():
         "nack",
         "info",
     )
+    assert "enum" not in LETTER_REF_SCHEMA["properties"]["type"]
 
 
 def test_read_rejects_non_boolean_include_body(client, mailbox):

@@ -6,6 +6,7 @@ SERVER_VERSION = "0.1.0"
 
 ID_PATTERN = r"^[A-Za-z0-9_.:-]{1,128}$"
 
+# Documented source set. Never enforced: type is carried verbatim.
 LETTER_TYPES = (
     "request",
     "delegate",
@@ -17,6 +18,7 @@ LETTER_TYPES = (
     "info",
 )
 LETTER_STATES = ("open", "acked", "processed")
+TYPE_MAX_CODEPOINTS = 64
 
 CHECK_LETTER_CAP = 50
 CHECK_CHAR_CAP = 4000
