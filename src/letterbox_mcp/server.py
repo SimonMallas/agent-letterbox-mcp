@@ -16,6 +16,7 @@ from mcp.shared.message import SessionMessage
 from mcp.types import ErrorData, JSONRPCRequest
 
 from letterbox_mcp.constants import (
+    BIDI_CONTROL_CHARS,
     DEFAULT_MAX_BODY_CHARS,
     JSONRPC_INVALID_PARAMS,
     LETTER_MIME,
@@ -24,6 +25,11 @@ from letterbox_mcp.constants import (
     SERVER_VERSION,
     URI_PREFIX,
 )
+
+_JSON_TEXT_ESCAPES = {
+    ord(ch): f"\\u{ord(ch):04x}"
+    for ch in ("\u2028", "\u2029", *BIDI_CONTROL_CHARS)
+}
 from letterbox_mcp.errors import not_found_error, too_large_error, unknown_id_tool_text
 from letterbox_mcp.ids import is_letter_id, letter_uri, parse_letter_uri
 from letterbox_mcp.mailbox import Mailbox
@@ -202,6 +208,12 @@ async def _tap_raw_uris(source, dest) -> None:
         pass
 
 
+def dump_structured_json(data: dict) -> str:
+    """JSON text block: C0/C1 via json.dumps; U+2028/U+2029 and Bidi_Control too."""
+    text = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+    return text.translate(_JSON_TEXT_ESCAPES)
+
+
 def enforce_output_schema(schema: dict, data: dict) -> None:
     jsonschema.validate(instance=data, schema=schema)
 
@@ -269,7 +281,7 @@ def _do_read(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResul
     body, truncated = clip_body(letter.body, max_body_chars)
     structured = {**ref, "body": body, "truncated": truncated}
     enforce_output_schema(READ_OUTPUT_SCHEMA, structured)
-    dumped = json.dumps(structured, separators=(",", ":"), ensure_ascii=False)
+    dumped = dump_structured_json(structured)
     return types.CallToolResult(
         content=[
             types.TextContent(type="text", text=dumped),

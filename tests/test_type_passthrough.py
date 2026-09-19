@@ -12,6 +12,20 @@ _SPLITLINES_CONTROLS = (
     "\u001e",  # RS
     "\u0085",  # NEL
 )
+_BIDI_CONTROLS = (
+    "\u061c",
+    "\u200e",
+    "\u200f",
+    "\u202a",
+    "\u202b",
+    "\u202c",
+    "\u202d",
+    "\u202e",
+    "\u2066",
+    "\u2067",
+    "\u2068",
+    "\u2069",
+)
 
 
 def _init(client):
@@ -252,15 +266,43 @@ def test_check_table_has_no_controls_or_line_separators(client, mailbox):
     _init(client)
     result = _check(client)
     table = result["result"]["content"][0]["text"]
-    for code in list(range(0x00, 0x20)) + list(range(0x7F, 0xA0)) + [0x2028, 0x2029]:
+    forbidden = (
+        list(range(0x00, 0x20))
+        + list(range(0x7F, 0xA0))
+        + [0x2028, 0x2029]
+        + [ord(ch) for ch in _BIDI_CONTROLS]
+    )
+    for code in forbidden:
         if code in (0x09, 0x0A):  # tab/LF are table structure
             continue
         assert chr(code) not in table
 
 
-def test_body_esc_is_readable_and_json_escaped(client, mailbox):
-    ident = live_id("bodyesc")
-    write_letter(mailbox, ident, "hello\x1bworld")
+@pytest.mark.parametrize("index,char", list(enumerate(_BIDI_CONTROLS)))
+def test_bidi_control_fails_both_tools(client, mailbox, index, char):
+    ident = live_id(f"bidi{index:02d}")
+    inbox = mailbox / AGENT / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    if index < 6:
+        header = f"---\nid: {ident}\nfrom: ab{char}cd\nto: {AGENT}\ntype: info\n---\n"
+    else:
+        header = f"---\nid: {ident}\nfrom: beta\nto: xy{char}cd\ntype: info\n---\n"
+    (inbox / f"{ident}.md").write_text(header + "body\n", encoding="utf-8")
+    _init(client)
+    _assert_loud_both(client, ident)
+
+
+@pytest.mark.parametrize(
+    "label,hazard",
+    (
+        ("esc", "\x1b"),
+        ("ls", "\u2028"),
+        ("rlo", "\u202e"),
+    ),
+)
+def test_body_hazard_readable_and_json_escaped(client, mailbox, label, hazard):
+    ident = live_id(f"body{label}")
+    write_letter(mailbox, ident, f"hello{hazard}world")
     _init(client)
     check = _check(client)
     assert check["result"]["isError"] is False
@@ -270,7 +312,7 @@ def test_body_esc_is_readable_and_json_escaped(client, mailbox):
     )
     assert read["result"]["isError"] is False
     structured = read["result"]["structuredContent"]
-    assert "\x1b" in structured["body"]
+    assert hazard in structured["body"]
     text = next(block["text"] for block in read["result"]["content"] if block.get("type") == "text")
-    assert "\x1b" not in text
-    assert "\\u001b" in text
+    assert hazard not in text
+    assert f"\\u{ord(hazard):04x}" in text

@@ -32,3 +32,33 @@ def test_freeze_literals_match_document():
     assert values["JSONRPC_TOO_LARGE"] == -32000
     assert values["JSONRPC_NOT_FOUND"] == -32002
     assert values["TYPE_MAX_CODEPOINTS"] == 64
+    assert values["BIDI_CONTROL_SOURCE_UCD"] == "16.0.0"
+    assert values["BIDI_CONTROL_CHARS"] == (
+        "\u061c",
+        "\u200e",
+        "\u200f",
+        "\u202a",
+        "\u202b",
+        "\u202c",
+        "\u202d",
+        "\u202e",
+        "\u2066",
+        "\u2067",
+        "\u2068",
+        "\u2069",
+    )
+
+
+def _ucd_parts(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
+def test_runtime_ucd_is_not_newer_than_bidi_source():
+    import unicodedata
+
+    runtime = _ucd_parts(unicodedata.unidata_version)
+    source = _ucd_parts("16.0.0")
+    width = max(len(runtime), len(source))
+    runtime += (0,) * (width - len(runtime))
+    source += (0,) * (width - len(source))
+    assert runtime <= source

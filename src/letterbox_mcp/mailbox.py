@@ -7,7 +7,9 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from letterbox_mcp.constants import STALE_SECONDS, TYPE_MAX_CODEPOINTS
+from letterbox_mcp.constants import BIDI_CONTROL_CHARS, STALE_SECONDS, TYPE_MAX_CODEPOINTS
+
+_BIDI_CONTROLS = frozenset(BIDI_CONTROL_CHARS)
 from letterbox_mcp.ids import is_letter_id, letter_uri
 
 _FRONTMATTER_RE = re.compile(
@@ -306,6 +308,8 @@ def _metadata_unrepresentable(value: str) -> bool:
         if code <= 0x1F or 0x7F <= code <= 0x9F:
             return True
         if char in "\u2028\u2029":
+            return True
+        if char in _BIDI_CONTROLS:
             return True
     return False
 

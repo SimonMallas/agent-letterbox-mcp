@@ -20,6 +20,23 @@ LETTER_TYPES = (
 LETTER_STATES = ("open", "acked", "processed")
 TYPE_MAX_CODEPOINTS = 64
 
+# Frozen Bidi_Control set at UCD 16.0.0. Do not derive from unicodedata.
+BIDI_CONTROL_SOURCE_UCD = "16.0.0"
+BIDI_CONTROL_CHARS = (
+    "\u061c",
+    "\u200e",
+    "\u200f",
+    "\u202a",
+    "\u202b",
+    "\u202c",
+    "\u202d",
+    "\u202e",
+    "\u2066",
+    "\u2067",
+    "\u2068",
+    "\u2069",
+)
+
 CHECK_LETTER_CAP = 50
 CHECK_CHAR_CAP = 4000
 DEFAULT_MAX_BODY_CHARS = 4000
