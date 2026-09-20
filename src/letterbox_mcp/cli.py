@@ -26,6 +26,7 @@ class CliResult:
     ring: dict[str, str] | None
     letter_id: str | None
     already_filed: bool
+    already_closed: bool
 
 
 def run_cli(
@@ -54,6 +55,7 @@ def run_cli(
     ring = parse_ring(stdout)
     letter_id = _parse_sent_id(stdout)
     already = bool(ALREADY_FILED.search(stdout))
+    closed = any(line.startswith("already closed:") for line in stdout.splitlines())
     ok = proc.returncode == 0
     return CliResult(
         ok=ok,
@@ -62,6 +64,7 @@ def run_cli(
         ring=ring,
         letter_id=letter_id,
         already_filed=already,
+        already_closed=closed,
     )
 
 

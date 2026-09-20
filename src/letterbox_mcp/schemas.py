@@ -99,16 +99,25 @@ SEND_INPUT_SCHEMA = {
     "additionalProperties": False,
 }
 
+RING_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "outcome": {"type": "string"},
+        "reason": {"type": "string"},
+        "target": {"type": "string"},
+    },
+    "required": ["outcome", "reason", "target"],
+    "additionalProperties": False,
+}
+
 SEND_OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {
         "id": {"type": "string"},
         "uri": {"type": "string"},
-        "outcome": {"type": "string"},
-        "reason": {"type": "string"},
-        "target": {"type": "string"},
+        "ring": RING_SCHEMA,
     },
-    "required": ["id", "uri", "outcome", "reason", "target"],
+    "required": ["id", "uri", "ring"],
     "additionalProperties": False,
 }
 
@@ -128,9 +137,7 @@ REPLY_OUTPUT_SCHEMA = {
     "properties": {
         "action": {"type": "string"},
         "id": {"type": "string"},
-        "outcome": {"type": "string"},
-        "reason": {"type": "string"},
-        "target": {"type": "string"},
+        "ring": RING_SCHEMA,
     },
     "required": ["action", "id"],
     "additionalProperties": False,
@@ -148,10 +155,9 @@ FILE_INPUT_SCHEMA = {
 FILE_OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {
-        **LETTER_REF_SCHEMA["properties"],
-        "already_filed": {"type": "boolean"},
+        "letter": LETTER_REF_SCHEMA,
     },
-    "required": list(LETTER_REF_SCHEMA["required"]) + ["already_filed"],
+    "required": ["letter"],
     "additionalProperties": False,
 }
 

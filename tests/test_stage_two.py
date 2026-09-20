@@ -58,11 +58,13 @@ def test_send_defaults_from_written_letter(client, mailbox):
         assert result["result"]["isError"] is False
         text = _text(result)
         structured = result["result"]["structuredContent"]
-        for key in ("id", "uri", "outcome", "reason", "target"):
-            assert key in structured
-            assert structured[key] in text
-        assert structured["outcome"] in ("submitted", "pasted_not_submitted", "no_live_surface")
-        assert structured["outcome"] != "unconfirmed"
+        assert "id" in structured and "uri" in structured
+        ring = structured["ring"]
+        assert set(ring) == {"outcome", "reason", "target"}
+        assert ring["outcome"] in ("submitted", "pasted_not_submitted", "no_live_surface")
+        assert ring["outcome"] != "unconfirmed"
+        assert '"ring"' in text
+        assert ring["outcome"] in text
         letters = _peer_letters(mailbox)
         assert len(letters) == before + 1
         fields = _frontmatter(max(letters, key=lambda p: p.stat().st_mtime))
@@ -170,14 +172,16 @@ def test_file_non_task_and_repeat(client, mailbox):
     _init(client)
     first = client.request("tools/call", {"name": "letterbox_file", "arguments": {"id": ident}})
     assert first["result"]["isError"] is False
-    assert first["result"]["structuredContent"]["state"] == "processed"
-    assert first["result"]["structuredContent"]["already_filed"] is False
+    letter = first["result"]["structuredContent"]["letter"]
+    assert letter["state"] == "processed"
+    assert "already_filed" not in first["result"]["structuredContent"]
     assert ident in _text(first)
     assert "processed" in _text(first)
     second = client.request("tools/call", {"name": "letterbox_file", "arguments": {"id": ident}})
     assert second["result"]["isError"] is False
-    assert second["result"]["structuredContent"]["already_filed"] is True
-    assert "already" in _text(second).lower()
+    assert "already_filed" not in second["result"]["structuredContent"]
+    assert second["result"]["structuredContent"]["letter"]["state"] == "processed"
+    assert "already filed" in _text(second).lower()
 
 
 def test_subject_overflow_refused_before_cli(client, mailbox):
@@ -208,10 +212,85 @@ def test_reply_result_carries_ring(client, mailbox):
     structured = result["result"]["structuredContent"]
     assert structured["action"] == "result"
     assert structured["id"] == ident
-    assert "outcome" in structured
-    assert structured["outcome"] in ("submitted", "pasted_not_submitted", "no_live_surface")
-    assert structured["outcome"] in text
+    ring = structured["ring"]
+    assert ring["outcome"] in ("submitted", "pasted_not_submitted", "no_live_surface")
+    assert ring["outcome"] in text
     assert ident in text
+
+
+def test_reply_duplicate_from_refused_byte_identical(client, mailbox):
+    ident = live_id("duprep")
+    inbox = mailbox / AGENT / "inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    (inbox / f"{ident}.md").write_text(
+        f"---\nid: {ident}\nfrom: beta\nfrom: pi\nto: {AGENT}\ntype: request\nrequires_ack: true\ndeadline: 2026-09-21T09:00:00Z\n---\nbody\n",
+        encoding="utf-8",
+    )
+    _init(client)
+    before = _snapshot(mailbox)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is True
+    assert "duplicate_key" in _text(result)
+    assert _snapshot(mailbox) == before
+    assert not list((mailbox / "beta" / "inbox").glob("*.md"))
+
+
+def test_file_non_letter_not_found_before_cli(client, mailbox):
+    ident = live_id("nofrom")
+    inbox = mailbox / AGENT / "inbox"
+    (inbox / f"{ident}.md").write_text(
+        f"---\nid: {ident}\nto: {AGENT}\ntype: info\nrequires_ack: false\n---\nbody\n",
+        encoding="utf-8",
+    )
+    _init(client)
+    before = _snapshot(mailbox)
+    result = client.request("tools/call", {"name": "letterbox_file", "arguments": {"id": ident}})
+    assert result["result"]["isError"] is True
+    assert "not found" in _text(result).lower()
+    assert _snapshot(mailbox) == before
+
+
+def test_repeat_ack_succeeds_and_says_existed(client, mailbox):
+    ident = live_id("acktwice")
+    write_letter(mailbox, ident, "task", type_name="request", deadline="2026-09-21T09:00:00Z")
+    path = mailbox / AGENT / "inbox" / f"{ident}.md"
+    path.write_text(path.read_text(encoding="utf-8").replace("requires_ack: false", "requires_ack: true"), encoding="utf-8")
+    _init(client)
+    first = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "ack", "body": "on it"}},
+    )
+    assert first["result"]["isError"] is False
+    assert "ring" not in first["result"]["structuredContent"]
+    second = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "ack", "body": "on it"}},
+    )
+    assert second["result"]["isError"] is False
+    assert "ack already existed" in _text(second)
+    assert "ring" not in second["result"]["structuredContent"]
+
+
+def test_repeat_result_already_closed_no_ring(client, mailbox):
+    ident = live_id("restwice")
+    write_letter(mailbox, ident, "q", type_name="info")
+    _init(client)
+    first = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+    )
+    assert first["result"]["isError"] is False
+    assert "ring" in first["result"]["structuredContent"]
+    second = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done again"}},
+    )
+    assert second["result"]["isError"] is False
+    assert "already closed" in _text(second)
+    assert "ring" not in second["result"]["structuredContent"]
 
 
 def test_file_open_task_refused(client, mailbox):

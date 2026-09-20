@@ -305,10 +305,15 @@ def _do_check(mailbox: Mailbox) -> types.CallToolResult:
     )
 
 
-def _json_result(schema: dict, structured: dict) -> types.CallToolResult:
+def _json_result(
+    schema: dict, structured: dict, extra_text: str | None = None
+) -> types.CallToolResult:
     enforce_output_schema(schema, structured)
+    blocks = [types.TextContent(type="text", text=dump_structured_json(structured))]
+    if extra_text:
+        blocks.append(types.TextContent(type="text", text=extra_text))
     return types.CallToolResult(
-        content=[types.TextContent(type="text", text=dump_structured_json(structured))],
+        content=blocks,
         structuredContent=structured,
         isError=False,
     )
@@ -348,9 +353,11 @@ def _do_send(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResul
     structured = {
         "id": cli.letter_id,
         "uri": letter_uri(cli.letter_id),
-        "outcome": cli.ring["outcome"],
-        "reason": cli.ring["reason"],
-        "target": cli.ring["target"],
+        "ring": {
+            "outcome": cli.ring["outcome"],
+            "reason": cli.ring["reason"],
+            "target": cli.ring["target"],
+        },
     }
     return _json_result(SEND_OUTPUT_SCHEMA, structured)
 
@@ -361,6 +368,13 @@ def _do_reply(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResu
     body = arguments["body"]
     if not is_letter_id(letter_id):
         return _tool_error(unknown_id_tool_text())
+    letter = mailbox.get(letter_id, inbox_only=False)
+    if letter is None:
+        return _tool_error(unknown_id_tool_text())
+    err = preflight_for_file(letter)
+    if err:
+        return _tool_error(err)
+    already_acked = letter.state == "acked" and action == "ack"
     args = ["reply", letter_id, action, "reply"]
     if action == "result":
         args.append("--now")
@@ -368,11 +382,21 @@ def _do_reply(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResu
     if not cli.ok:
         return _tool_error(cli.stderr or "CLI refused")
     structured: dict[str, Any] = {"action": action, "id": letter_id}
+    extra = None
+    if already_acked:
+        extra = "ack already existed"
     if action == "result":
-        if not cli.ring:
+        if cli.already_closed:
+            extra = "already closed"
+        elif cli.ring:
+            structured["ring"] = {
+                "outcome": cli.ring["outcome"],
+                "reason": cli.ring["reason"],
+                "target": cli.ring["target"],
+            }
+        else:
             return _tool_error("CLI produced no doorbell-outcome")
-        structured.update(cli.ring)
-    return _json_result(REPLY_OUTPUT_SCHEMA, structured)
+    return _json_result(REPLY_OUTPUT_SCHEMA, structured, extra)
 
 
 def _do_file(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResult:
@@ -380,18 +404,19 @@ def _do_file(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResul
     if not is_letter_id(letter_id):
         return _tool_error(unknown_id_tool_text())
     letter = mailbox.get(letter_id, inbox_only=False)
-    if letter is not None:
-        err = preflight_for_file(letter)
-        if err:
-            return _tool_error(err)
+    if letter is None:
+        return _tool_error(unknown_id_tool_text())
+    err = preflight_for_file(letter)
+    if err:
+        return _tool_error(err)
     cli = run_cli(mailbox._root, mailbox._agent, ["file", letter_id])
     if not cli.ok:
         return _tool_error(cli.stderr or "CLI refused")
     done = mailbox.get(letter_id, inbox_only=False)
     if done is None:
         return _tool_error("CLI filed but letter is missing")
-    structured = {**done.as_ref(), "already_filed": cli.already_filed}
-    return _json_result(FILE_OUTPUT_SCHEMA, structured)
+    extra = "already filed" if cli.already_filed else None
+    return _json_result(FILE_OUTPUT_SCHEMA, {"letter": done.as_ref()}, extra)
 
 
 def _do_read(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResult:
