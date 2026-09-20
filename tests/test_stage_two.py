@@ -20,7 +20,7 @@ def _frontmatter(path: Path) -> dict[str, str]:
     text = path.read_text(encoding="utf-8")
     header = text.split("---", 2)[1]
     fields: dict[str, str] = {}
-    for line in header.splitlines():
+    for line in header.replace("\r\n", "\n").split("\n"):
         if ":" in line:
             key, value = line.split(":", 1)
             fields[key.strip()] = value.strip()
@@ -338,6 +338,38 @@ def test_sidecar_without_durable_ack_is_first_ack(client, mailbox):
     assert "already existed" not in _text(result)
     ack_path = mailbox / "beta" / "inbox" / f"{ident}--{AGENT}--ack.md"
     assert ack_path.is_file()
+
+
+def _copied_thread(mailbox: Path, ident: str, action: str = "result") -> str:
+    path = mailbox / "beta" / "inbox" / f"{ident}--{AGENT}--{action}.md"
+    return _frontmatter(path)["thread"]
+
+
+def test_reply_copies_bounded_hazardous_threads(client, mailbox):
+    import json
+
+    cases = [
+        ("thesc", "ok\x1bthread"),
+        ("thls", "ok\u2028x"),
+        ("thrlo", "ok\u202eth"),
+        ("th65", "t" * 65),
+        ("th256", "t" * 256),
+    ]
+    _init(client)
+    for suffix, thread in cases:
+        ident = live_id(suffix)
+        write_letter(mailbox, ident, "q", type_name="info", thread=thread)
+        result = client.request(
+            "tools/call",
+            {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+        )
+        assert result["result"]["isError"] is False, suffix
+        copied = _copied_thread(mailbox, ident)
+        assert copied == thread
+        escaped = json.dumps(copied, ensure_ascii=True)
+        assert "\x1b" not in escaped
+        assert "\u2028" not in escaped
+        assert "\u202e" not in escaped
 
 
 def test_reply_overlong_thread_refused(client, mailbox):

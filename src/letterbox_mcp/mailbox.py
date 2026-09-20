@@ -370,10 +370,8 @@ def preflight_for_reply(
         return f"unrepresentable metadata on {letter.id}"
     if not _participant_inbox_real(root, letter.from_):
         return f"unrepresentable metadata on {letter.id}"
-    if letter.thread and (
-        _metadata_unrepresentable(letter.thread) or letter.thread_over_bound
-    ):
-        return f"unrepresentable metadata on {letter.id}"
+    if letter.thread and letter.thread_over_bound:
+        return f"thread exceeds 256 code points on {letter.id}"
     derived = f"{letter.id}--{agent}--{action}"
     if not is_letter_id(derived):
         return f"derived reply id would fail grammar on {letter.id}"
