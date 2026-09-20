@@ -138,6 +138,7 @@ class Mailbox:
                     folder=folder,
                     ack_epoch=self._ack_epoch(folder_fd, name),
                     now=self._now_epoch(),
+                    filename=name,
                 )
                 if parsed is not None and parsed.id == letter_id:
                     return (st.st_size, data)
@@ -177,6 +178,7 @@ class Mailbox:
                             folder=folder,
                             ack_epoch=self._ack_epoch(folder_fd, name),
                             now=self._now_epoch(),
+                            filename=name,
                         )
                         if parsed is not None:
                             out.append(parsed)
@@ -263,6 +265,7 @@ def _parse_letter(
     folder: str,
     ack_epoch: int | None,
     now: int,
+    filename: str,
 ) -> Letter | None:
     match = _FRONTMATTER_RE.match(data)
     if not match:
@@ -280,11 +283,14 @@ def _parse_letter(
         if key in fields:
             duplicate_key = True
         fields[key] = value
+    file_id = filename[:-3] if filename.endswith(".md") else filename
     ident = fields.get("id", "")
     from_ = fields.get("from", "")
     to = fields.get("to", "")
     kind = fields.get("type", "")
-    if not is_letter_id(ident) or not from_ or not to:
+    if duplicate_key:
+        ident = file_id
+    elif not is_letter_id(ident) or not from_ or not to:
         return None
     priority = fields.get("priority", "")
     deadline = fields.get("deadline", "")
