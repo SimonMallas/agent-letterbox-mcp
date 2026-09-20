@@ -1,7 +1,7 @@
 from tests.conftest import live_id
 from tests.harness import write_letter
 from letterbox_mcp.constants import LETTER_TYPES
-from letterbox_mcp.schemas import FILE_TOOL_ANNOTATIONS, LETTER_REF_SCHEMA
+from letterbox_mcp.schemas import FILE_TOOL_ANNOTATIONS, LETTER_ENVELOPE_SCHEMA, LETTER_REF_SCHEMA
 
 
 def _init(client):
@@ -40,6 +40,12 @@ def test_enum_exhaustiveness_type_set():
         "info",
     )
     assert "enum" not in LETTER_REF_SCHEMA["properties"]["type"]
+    assert "thread" not in LETTER_REF_SCHEMA["properties"]
+    assert "re" not in LETTER_REF_SCHEMA["properties"]
+    assert LETTER_REF_SCHEMA["additionalProperties"] is False
+    assert "thread" in LETTER_ENVELOPE_SCHEMA["properties"]
+    assert "re" in LETTER_ENVELOPE_SCHEMA["properties"]
+    assert LETTER_ENVELOPE_SCHEMA["additionalProperties"] is False
 
 
 def test_read_rejects_non_boolean_include_body(client, mailbox):

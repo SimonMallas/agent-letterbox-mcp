@@ -18,7 +18,8 @@ MCP is how some agents hold the same mail. It does not carry the letter in the r
 2. `check` never returns bodies. `read` is one id. `include_body` defaults false.
 3. No search tool. No bridge tokens, allowlists or chat ids in any schema, URI, log line or structured content.
 4. One resource template, `letterbox://letter/{id}`. Never `file://`. Unknown id is an error, never an empty letter.
-5. MCP capabilities describe this adapter, not Letterbox. Absent `resources.subscribe` does not mean Letterbox cannot notify; notification lives on the attention plane, outside MCP.
+5. No decision-critical outcome exists only in `structuredContent`. Server-authored text is the compatibility contract.
+6. MCP capabilities describe this adapter, not Letterbox. Absent `resources.subscribe` does not mean Letterbox cannot notify; notification lives on the attention plane, outside MCP.
 
 ## Stage one
 

@@ -16,6 +16,9 @@ def _valid_check() -> dict:
                 "state": "open",
                 "age": "0m",
                 "uri": "letterbox://letter/a",
+                "priority": "next",
+                "requires_ack": False,
+                "deadline": "",
             }
         ],
         "truncated": False,
@@ -41,6 +44,11 @@ def test_read_output_rejects_injected_path():
         "state": "open",
         "age": "0m",
         "uri": "letterbox://letter/a",
+        "priority": "next",
+        "requires_ack": False,
+        "deadline": "",
+        "thread": "",
+        "re": "",
         "path": "/tmp/leak",
     }
     try:

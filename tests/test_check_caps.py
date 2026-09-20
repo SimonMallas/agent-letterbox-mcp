@@ -32,7 +32,12 @@ def test_letter_cap_binds(client, mailbox):
     assert structured["truncated"] is True
     assert structured["remaining"] == 10
     table = result["result"]["content"][0]["text"]
-    table_ids = [line.split(" ", 1)[0] for line in table.strip().splitlines()[1:] if line]
+    assert "shown=50 remaining=10 truncated=true" in table
+    table_ids = [
+        line.split(" ", 1)[0]
+        for line in table.splitlines()
+        if line and not line.startswith("id ") and not line.startswith("shown=")
+    ]
     assert table_ids == [item["id"] for item in structured["letters"]]
 
 
@@ -44,7 +49,11 @@ def test_character_cap_binds_first(client, mailbox):
     result = client.request("tools/call", {"name": "letterbox_check", "arguments": {}})
     structured = result["result"]["structuredContent"]
     table = result["result"]["content"][0]["text"]
-    rows = [line for line in table.splitlines() if line and not line.startswith("id ")]
+    rows = [
+        line
+        for line in table.splitlines()
+        if line and not line.startswith("id ") and not line.startswith("shown=")
+    ]
     assert len(rows) == len(structured["letters"])
     assert len(structured["letters"]) < 30
     assert len(structured["letters"]) < 50
@@ -52,6 +61,13 @@ def test_character_cap_binds_first(client, mailbox):
     assert structured["remaining"] == 30 - len(structured["letters"])
     assert len(table) <= 4000
     if rows:
-        last = rows[-1]
-        assert last == f"{structured['letters'][-1]['id']} {structured['letters'][-1]['from']} {structured['letters'][-1]['state']} {structured['letters'][-1]['age']}"
-        assert not last.endswith(" ")
+        from letterbox_mcp.render import json_string
+
+        last_ref = structured["letters"][-1]
+        ack = "true" if last_ref["requires_ack"] else "false"
+        expected = (
+            f"{last_ref['id']} {last_ref['from']} {last_ref['type']} {last_ref['priority']} "
+            f"{ack} {json_string(last_ref['deadline'])} {last_ref['state']} {last_ref['age']}"
+        )
+        assert rows[-1] == expected
+        assert not rows[-1].endswith(" ")

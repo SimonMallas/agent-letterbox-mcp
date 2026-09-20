@@ -16,8 +16,35 @@ LETTER_REF_SCHEMA = {
         "state": {"type": "string", "enum": list(LETTER_STATES)},
         "age": {"type": "string"},
         "uri": {"type": "string"},
+        "priority": {"type": "string"},
+        "requires_ack": {"type": "boolean"},
+        "deadline": {"type": "string"},
     },
-    "required": ["id", "from", "to", "type", "state", "age", "uri"],
+    "required": [
+        "id",
+        "from",
+        "to",
+        "type",
+        "state",
+        "age",
+        "uri",
+        "priority",
+        "requires_ack",
+        "deadline",
+    ],
+    "additionalProperties": False,
+}
+
+LETTER_ENVELOPE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **LETTER_REF_SCHEMA["properties"],
+        "thread": {"type": "string"},
+        "re": {"type": "string"},
+        "body": {"type": "string"},
+        "truncated": {"type": "boolean"},
+    },
+    "required": list(LETTER_REF_SCHEMA["required"]) + ["thread", "re"],
     "additionalProperties": False,
 }
 
@@ -53,16 +80,7 @@ READ_INPUT_SCHEMA = {
     "additionalProperties": False,
 }
 
-READ_OUTPUT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        **LETTER_REF_SCHEMA["properties"],
-        "body": {"type": "string"},
-        "truncated": {"type": "boolean"},
-    },
-    "required": list(LETTER_REF_SCHEMA["required"]),
-    "additionalProperties": False,
-}
+READ_OUTPUT_SCHEMA = LETTER_ENVELOPE_SCHEMA
 
 # Stage two: freeze annotations now; the tool is not registered in stage one.
 FILE_TOOL_ANNOTATIONS = {

@@ -90,6 +90,10 @@ def write_letter(
     folder: str = "inbox",
     acked: bool = False,
     extra_bytes: int | None = None,
+    priority: str = "next",
+    deadline: str = "",
+    thread: str = "",
+    re_field: str = "",
 ) -> Path:
     dest = mailbox / AGENT / folder
     dest.mkdir(parents=True, exist_ok=True)
@@ -100,10 +104,11 @@ def write_letter(
         f"from: {from_agent}\n"
         f"to: {to_agent}\n"
         f"{type_line}"
-        f"re:\n"
-        f"priority: next\n"
+        f"re: {re_field}\n"
+        f"thread: {thread}\n"
+        f"priority: {priority}\n"
         f"requires_ack: {'true' if acked else 'false'}\n"
-        f"deadline:\n"
+        f"deadline: {deadline}\n"
         f"---\n"
     )
     text = header + body

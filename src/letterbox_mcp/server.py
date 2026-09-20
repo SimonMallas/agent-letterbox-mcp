@@ -16,7 +16,6 @@ from mcp.shared.message import SessionMessage
 from mcp.types import ErrorData, JSONRPCRequest
 
 from letterbox_mcp.constants import (
-    BIDI_CONTROL_CHARS,
     DEFAULT_MAX_BODY_CHARS,
     JSONRPC_INVALID_PARAMS,
     LETTER_MIME,
@@ -25,15 +24,10 @@ from letterbox_mcp.constants import (
     SERVER_VERSION,
     URI_PREFIX,
 )
-
-_JSON_TEXT_ESCAPES = {
-    ord(ch): f"\\u{ord(ch):04x}"
-    for ch in ("\u2028", "\u2029", *BIDI_CONTROL_CHARS)
-}
 from letterbox_mcp.errors import not_found_error, too_large_error, unknown_id_tool_text
 from letterbox_mcp.ids import is_letter_id, letter_uri, parse_letter_uri
 from letterbox_mcp.mailbox import Mailbox
-from letterbox_mcp.render import clip_body, envelope_text, render_check
+from letterbox_mcp.render import clip_body, render_check
 from letterbox_mcp.schemas import (
     CHECK_INPUT_SCHEMA,
     CHECK_OUTPUT_SCHEMA,
@@ -209,9 +203,8 @@ async def _tap_raw_uris(source, dest) -> None:
 
 
 def dump_structured_json(data: dict) -> str:
-    """JSON text block: C0/C1 via json.dumps; U+2028/U+2029 and Bidi_Control too."""
-    text = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
-    return text.translate(_JSON_TEXT_ESCAPES)
+    """Frozen encoder: Python JSON with ensure_ascii=True."""
+    return json.dumps(data, separators=(",", ":"), ensure_ascii=True)
 
 
 def enforce_output_schema(schema: dict, data: dict) -> None:
@@ -235,9 +228,15 @@ def _unrepresentable_metadata_error(letter_id: str) -> types.CallToolResult:
 
 def _do_check(mailbox: Mailbox) -> types.CallToolResult:
     open_letters = mailbox.list_open()
+    dup = next((item for item in open_letters if item.duplicate_key), None)
+    if dup is not None:
+        return _tool_error(f"duplicate_key on {dup.id}")
     bad = next((item for item in open_letters if item.metadata_unrepresentable), None)
     if bad is not None:
         return _unrepresentable_metadata_error(bad.id)
+    over = next((item for item in open_letters if item.deadline_over_bound), None)
+    if over is not None:
+        return _tool_error(f"deadline exceeds 256 code points on {over.id}")
     refs, table, truncated, remaining = render_check(open_letters)
     structured = {"letters": refs, "truncated": truncated, "remaining": remaining}
     enforce_output_schema(CHECK_OUTPUT_SCHEMA, structured)
@@ -255,39 +254,38 @@ def _do_read(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResul
     letter = mailbox.get(letter_id, inbox_only=True)
     if letter is None:
         return _tool_error(unknown_id_tool_text())
+    if letter.duplicate_key:
+        return _tool_error(f"duplicate_key on {letter.id}")
     if letter.metadata_unrepresentable:
         return _unrepresentable_metadata_error(letter.id)
+    if letter.deadline_over_bound:
+        return _tool_error(f"deadline exceeds 256 code points on {letter.id}")
+    if letter.thread_over_bound:
+        return _tool_error(f"thread exceeds 256 code points on {letter.id}")
+    if letter.re_over_bound:
+        return _tool_error(f"re exceeds 256 code points on {letter.id}")
     include_body = bool(arguments.get("include_body", False))
     max_body_chars = arguments.get("max_body_chars")
     if max_body_chars is None and include_body:
         max_body_chars = DEFAULT_MAX_BODY_CHARS
-    ref = letter.as_ref()
+    envelope = letter.as_envelope()
     link = types.ResourceLink(
         type="resource_link",
         name="letter",
         uri=letter_uri(letter.id),
         mimeType=LETTER_MIME,
     )
-    if not include_body:
-        enforce_output_schema(READ_OUTPUT_SCHEMA, ref)
-        return types.CallToolResult(
-            content=[
-                types.TextContent(type="text", text=envelope_text(ref)),
-                link,
-            ],
-            structuredContent=ref,
-            isError=False,
-        )
-    body, truncated = clip_body(letter.body, max_body_chars)
-    structured = {**ref, "body": body, "truncated": truncated}
-    enforce_output_schema(READ_OUTPUT_SCHEMA, structured)
-    dumped = dump_structured_json(structured)
+    if include_body:
+        body, truncated = clip_body(letter.body, max_body_chars)
+        envelope = {**envelope, "body": body, "truncated": truncated}
+    enforce_output_schema(READ_OUTPUT_SCHEMA, envelope)
+    dumped = dump_structured_json(envelope)
     return types.CallToolResult(
         content=[
             types.TextContent(type="text", text=dumped),
             link,
         ],
-        structuredContent=structured,
+        structuredContent=envelope,
         isError=False,
     )
 

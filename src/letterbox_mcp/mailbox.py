@@ -7,10 +7,15 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from letterbox_mcp.constants import BIDI_CONTROL_CHARS, STALE_SECONDS, TYPE_MAX_CODEPOINTS
+from letterbox_mcp.constants import (
+    BIDI_CONTROL_CHARS,
+    ESCAPED_FIELD_MAX,
+    STALE_SECONDS,
+    TYPE_MAX_CODEPOINTS,
+)
+from letterbox_mcp.ids import is_letter_id, letter_uri
 
 _BIDI_CONTROLS = frozenset(BIDI_CONTROL_CHARS)
-from letterbox_mcp.ids import is_letter_id, letter_uri
 
 _FRONTMATTER_RE = re.compile(
     rb"\A---\r?\n(.*?)\r?\n---\r?\n?(.*)\Z",
@@ -31,9 +36,18 @@ class Letter:
     size_bytes: int
     activity_epoch: int
     stale: bool
+    priority: str = ""
+    requires_ack: bool = False
+    deadline: str = ""
+    thread: str = ""
+    re: str = ""
     metadata_unrepresentable: bool = False
+    duplicate_key: bool = False
+    deadline_over_bound: bool = False
+    thread_over_bound: bool = False
+    re_over_bound: bool = False
 
-    def as_ref(self) -> dict[str, str]:
+    def as_ref(self) -> dict:
         return {
             "id": self.id,
             "from": self.from_,
@@ -42,7 +56,13 @@ class Letter:
             "state": self.state,
             "age": self.age,
             "uri": letter_uri(self.id),
+            "priority": self.priority,
+            "requires_ack": self.requires_ack,
+            "deadline": self.deadline,
         }
+
+    def as_envelope(self) -> dict:
+        return {**self.as_ref(), "thread": self.thread, "re": self.re}
 
 
 class Mailbox:
@@ -250,17 +270,27 @@ def _parse_letter(
     header = match.group(1).decode("utf-8", errors="replace")
     body = match.group(2).decode("utf-8", errors="replace")
     fields: dict[str, str] = {}
+    duplicate_key = False
     for line in _frontmatter_lines(header):
         if ":" not in line:
             continue
         key, value = line.split(":", 1)
-        fields[_field_strip(key)] = _field_strip(value)
+        key = _field_strip(key)
+        value = _field_strip(value)
+        if key in fields:
+            duplicate_key = True
+        fields[key] = value
     ident = fields.get("id", "")
     from_ = fields.get("from", "")
     to = fields.get("to", "")
     kind = fields.get("type", "")
     if not is_letter_id(ident) or not from_ or not to:
         return None
+    priority = fields.get("priority", "")
+    deadline = fields.get("deadline", "")
+    thread = fields.get("thread", "")
+    re_field = fields.get("re", "")
+    requires_ack = fields.get("requires_ack", "").lower() == "true"
     if folder == "processed":
         state = "processed"
     elif ack_epoch is not None:
@@ -282,12 +312,33 @@ def _parse_letter(
         size_bytes=size_bytes,
         activity_epoch=activity,
         stale=age_s > STALE_SECONDS,
+        priority=priority,
+        requires_ack=requires_ack,
+        deadline=deadline,
+        thread=thread,
+        re=re_field,
         metadata_unrepresentable=(
             _metadata_unrepresentable(kind)
             or _metadata_unrepresentable(from_)
             or _metadata_unrepresentable(to)
+            or _metadata_unrepresentable(priority)
         ),
+        duplicate_key=duplicate_key,
+        deadline_over_bound=len(deadline) > ESCAPED_FIELD_MAX,
+        thread_over_bound=len(thread) > ESCAPED_FIELD_MAX,
+        re_over_bound=len(re_field) > ESCAPED_FIELD_MAX,
     )
+
+
+def preflight_for_file(letter: Letter) -> str | None:
+    """Error text if file must refuse without mutating; None if the CLI may run."""
+    if letter.duplicate_key:
+        return f"duplicate_key on {letter.id}"
+    if letter.metadata_unrepresentable:
+        return f"unrepresentable metadata on {letter.id}"
+    if letter.deadline_over_bound:
+        return f"deadline exceeds 256 code points on {letter.id}"
+    return None
 
 
 def _frontmatter_lines(header: str) -> list[str]:

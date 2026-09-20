@@ -16,7 +16,7 @@ def not_found_error(*, uri: str) -> McpError:
     return McpError(
         ErrorData(
             code=JSONRPC_NOT_FOUND,
-            message="Resource not found",
+            message="not_found",
             data=data,
         )
     )
@@ -32,7 +32,7 @@ def too_large_error(letter_id: str, size_bytes: int) -> McpError:
     return McpError(
         ErrorData(
             code=JSONRPC_TOO_LARGE,
-            message="Resource too large",
+            message=f"too_large size_bytes={size_bytes} limit_bytes={RESOURCE_BYTE_CEILING}",
             data=data,
         )
     )

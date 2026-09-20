@@ -36,6 +36,7 @@ def test_freeze_literals_match_document():
     assert values["JSONRPC_TOO_LARGE"] == -32000
     assert values["JSONRPC_NOT_FOUND"] == -32002
     assert values["TYPE_MAX_CODEPOINTS"] == 64
+    assert values["ESCAPED_FIELD_MAX"] == 256
     assert values["BIDI_CONTROL_SOURCE_UCD"] == "16.0.0"
     assert values["BIDI_CONTROL_CHARS"] == (
         "\u061c",

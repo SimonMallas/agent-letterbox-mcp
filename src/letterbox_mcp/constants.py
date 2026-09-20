@@ -19,6 +19,7 @@ LETTER_TYPES = (
 )
 LETTER_STATES = ("open", "acked", "processed")
 TYPE_MAX_CODEPOINTS = 64
+ESCAPED_FIELD_MAX = 256
 
 # Frozen Bidi_Control set at UCD 16.0.0. Do not derive from unicodedata.
 BIDI_CONTROL_SOURCE_UCD = "16.0.0"
@@ -55,4 +56,4 @@ JSONRPC_NOT_FOUND = -32002
 REASON_NOT_FOUND = "not_found"
 REASON_TOO_LARGE = "too_large"
 
-CHECK_TABLE_HEADER = "id from state age\n"
+CHECK_TABLE_HEADER = "id from type priority requires_ack deadline state age\n"
