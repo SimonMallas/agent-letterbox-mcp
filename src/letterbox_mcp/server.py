@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
 from typing import Any
@@ -135,13 +136,13 @@ def build_server(mailbox: Mailbox) -> Server:
     async def call_tool(req: types.CallToolRequest) -> types.ServerResult:
         name = req.params.name
         if name not in STAGE_ONE_TOOLS:
-            raise McpError(ErrorData(code=JSONRPC_INVALID_PARAMS, message=f"Unknown tool: {name}"))
+            raise McpError(ErrorData(code=JSONRPC_INVALID_PARAMS, message="unknown tool"))
         arguments = req.params.arguments or {}
         schema = CHECK_INPUT_SCHEMA if name == "letterbox_check" else READ_INPUT_SCHEMA
         try:
             jsonschema.validate(instance=arguments, schema=schema)
         except jsonschema.ValidationError as exc:
-            return _tool_error(exc.message)
+            return _tool_error(_schema_error_text(exc, schema))
         rpc_id = _rpc_id(server)
         started = time.monotonic()
         if name == "letterbox_check":
@@ -288,6 +289,26 @@ def _do_read(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResul
         structuredContent=envelope,
         isError=False,
     )
+
+
+_VALIDATOR_TOKEN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+
+
+def _schema_error_text(exc: jsonschema.ValidationError, schema: dict) -> str:
+    """Name only schema-owned facts. Never the failed instance or an extra key."""
+    keyword = exc.validator if isinstance(exc.validator, str) else "invalid"
+    if _VALIDATOR_TOKEN.fullmatch(keyword) is None:
+        keyword = "invalid"
+    owned = schema.get("properties") or {}
+    parts: list[str] = []
+    for part in exc.absolute_path:
+        if isinstance(part, str) and part in owned:
+            parts.append(part)
+        else:
+            break
+    if parts:
+        return f"invalid arguments {'/'.join(parts)} {keyword}"
+    return f"invalid arguments {keyword}"
 
 
 def _tool_error(message: str) -> types.CallToolResult:
