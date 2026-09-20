@@ -289,7 +289,7 @@ def _parse_letter(
     to = fields.get("to", "")
     kind = fields.get("type", "")
     if duplicate_key:
-        ident = file_id
+        ident = file_id if _locator_is_safe(file_id) else ""
     elif not is_letter_id(ident) or not from_ or not to:
         return None
     priority = fields.get("priority", "")
@@ -336,10 +336,20 @@ def _parse_letter(
     )
 
 
+def _locator_is_safe(ident: str) -> bool:
+    return is_letter_id(ident) and not _metadata_unrepresentable(ident)
+
+
+def duplicate_key_message(letter: Letter) -> str:
+    if _locator_is_safe(letter.id):
+        return f"duplicate_key on {letter.id}"
+    return "duplicate_key on file with invalid id"
+
+
 def preflight_for_file(letter: Letter) -> str | None:
     """Error text if file must refuse without mutating; None if the CLI may run."""
     if letter.duplicate_key:
-        return f"duplicate_key on {letter.id}"
+        return duplicate_key_message(letter)
     if letter.metadata_unrepresentable:
         return f"unrepresentable metadata on {letter.id}"
     if letter.deadline_over_bound:

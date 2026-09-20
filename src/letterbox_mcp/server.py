@@ -26,7 +26,7 @@ from letterbox_mcp.constants import (
 )
 from letterbox_mcp.errors import not_found_error, too_large_error, unknown_id_tool_text
 from letterbox_mcp.ids import is_letter_id, letter_uri, parse_letter_uri
-from letterbox_mcp.mailbox import Mailbox
+from letterbox_mcp.mailbox import Mailbox, duplicate_key_message
 from letterbox_mcp.render import clip_body, render_check
 from letterbox_mcp.schemas import (
     CHECK_INPUT_SCHEMA,
@@ -230,7 +230,7 @@ def _do_check(mailbox: Mailbox) -> types.CallToolResult:
     open_letters = mailbox.list_open()
     dup = next((item for item in open_letters if item.duplicate_key), None)
     if dup is not None:
-        return _tool_error(f"duplicate_key on {dup.id}")
+        return _tool_error(duplicate_key_message(dup))
     bad = next((item for item in open_letters if item.metadata_unrepresentable), None)
     if bad is not None:
         return _unrepresentable_metadata_error(bad.id)
@@ -255,7 +255,7 @@ def _do_read(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResul
     if letter is None:
         return _tool_error(unknown_id_tool_text())
     if letter.duplicate_key:
-        return _tool_error(f"duplicate_key on {letter.id}")
+        return _tool_error(duplicate_key_message(letter))
     if letter.metadata_unrepresentable:
         return _unrepresentable_metadata_error(letter.id)
     if letter.deadline_over_bound:
