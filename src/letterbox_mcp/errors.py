@@ -11,8 +11,10 @@ from letterbox_mcp.constants import (
 from letterbox_mcp.ids import letter_uri
 
 
-def not_found_error(*, uri: str) -> McpError:
-    data = {"uri": uri, "reason": REASON_NOT_FOUND}
+def not_found_error(*, uri: str | None = None) -> McpError:
+    data: dict = {"reason": REASON_NOT_FOUND}
+    if uri is not None:
+        data["uri"] = uri
     return McpError(
         ErrorData(
             code=JSONRPC_NOT_FOUND,

@@ -14,12 +14,16 @@ def _target_x(mailbox):
     write_letter(mailbox, "x", JAIL_BODY, type_name="info")
 
 
-def _assert_refused(resp: dict) -> None:
+def _assert_refused(resp: dict, *, echo_uri: bool = False) -> None:
     assert "error" in resp
     assert resp["error"]["code"] == -32002
     data = resp["error"]["data"]
     assert data["reason"] == "not_found"
     assert "size_bytes" not in data
+    if echo_uri:
+        assert "uri" in data
+    else:
+        assert "uri" not in data
     dumped = str(resp)
     assert JAIL_BODY not in dumped
     assert "/inbox/" not in dumped
@@ -72,7 +76,7 @@ def test_jail_symlink_out(client, mailbox, tmp_path):
     os.symlink(outside, inbox / "x.md")
     _init(client)
     resp = client.request("resources/read", {"uri": "letterbox://letter/x"})
-    _assert_refused(resp)
+    _assert_refused(resp, echo_uri=True)
     assert "SECRET_OUTSIDE_BODY" not in str(resp)
     tool = client.request("tools/call", {"name": "letterbox_read", "arguments": {"id": "x"}})
     assert tool["result"]["isError"] is True

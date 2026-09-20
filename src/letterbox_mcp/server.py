@@ -104,15 +104,15 @@ def build_server(mailbox: Mailbox) -> Server:
         try:
             normalized = str(req.params.uri)
             if raw is None:
-                raise not_found_error(uri=normalized)
+                raise not_found_error()
             if raw != normalized:
-                raise not_found_error(uri=raw)
+                raise not_found_error()
             letter_id = parse_letter_uri(raw)
             if letter_id is None:
-                raise not_found_error(uri=raw)
+                raise not_found_error()
             loaded = mailbox.read_file_bytes(letter_id)
             if loaded is None:
-                raise not_found_error(uri=raw)
+                raise not_found_error(uri=letter_uri(letter_id))
             size, data = loaded
             if size > RESOURCE_BYTE_CEILING:
                 raise too_large_error(letter_id, size)

@@ -45,6 +45,7 @@ def test_absent_capture_refuses_even_when_letter_exists(mailbox):
     except McpError as err:
         assert err.error.code == -32002
         assert err.error.data["reason"] == "not_found"
+        assert "uri" not in (err.error.data or {})
         assert JAIL_BODY not in str(err.error)
         assert 1 not in _RAW_URIS
         return
