@@ -82,6 +82,93 @@ READ_INPUT_SCHEMA = {
 
 READ_OUTPUT_SCHEMA = LETTER_ENVELOPE_SCHEMA
 
+SENDABLE_TYPE_ENUM = ["request", "delegate", "status", "blocker", "info"]
+REPLY_ACTION_ENUM = ["ack", "nack", "result"]
+
+SEND_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "to": {"type": "string", "minLength": 1},
+        "type": {"type": "string", "enum": SENDABLE_TYPE_ENUM},
+        "subject": {"type": "string", "minLength": 1},
+        "body": {"type": "string", "minLength": 1},
+        "requires_ack": {"type": "boolean"},
+        "deadline": {"type": "string"},
+    },
+    "required": ["to", "type", "subject", "body"],
+    "additionalProperties": False,
+}
+
+SEND_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"},
+        "uri": {"type": "string"},
+        "outcome": {"type": "string"},
+        "reason": {"type": "string"},
+        "target": {"type": "string"},
+    },
+    "required": ["id", "uri", "outcome", "reason", "target"],
+    "additionalProperties": False,
+}
+
+REPLY_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "action": {"type": "string", "enum": REPLY_ACTION_ENUM},
+        "body": {"type": "string", "minLength": 1},
+    },
+    "required": ["id", "action", "body"],
+    "additionalProperties": False,
+}
+
+REPLY_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "action": {"type": "string"},
+        "id": {"type": "string"},
+        "outcome": {"type": "string"},
+        "reason": {"type": "string"},
+        "target": {"type": "string"},
+    },
+    "required": ["action", "id"],
+    "additionalProperties": False,
+}
+
+FILE_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string", "minLength": 1},
+    },
+    "required": ["id"],
+    "additionalProperties": False,
+}
+
+FILE_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **LETTER_REF_SCHEMA["properties"],
+        "already_filed": {"type": "boolean"},
+    },
+    "required": list(LETTER_REF_SCHEMA["required"]) + ["already_filed"],
+    "additionalProperties": False,
+}
+
+SEND_TOOL_ANNOTATIONS = {
+    "readOnlyHint": False,
+    "destructiveHint": False,
+    "idempotentHint": False,
+    "openWorldHint": False,
+}
+
+REPLY_TOOL_ANNOTATIONS = {
+    "readOnlyHint": False,
+    "destructiveHint": False,
+    "idempotentHint": False,
+    "openWorldHint": False,
+}
+
 # Stage two: freeze annotations now; the tool is not registered in stage one.
 FILE_TOOL_ANNOTATIONS = {
     "readOnlyHint": False,

@@ -27,18 +27,49 @@ from letterbox_mcp.constants import (
 )
 from letterbox_mcp.errors import not_found_error, too_large_error, unknown_id_tool_text
 from letterbox_mcp.ids import is_letter_id, letter_uri, parse_letter_uri
-from letterbox_mcp.mailbox import Mailbox, duplicate_key_message
+from letterbox_mcp.cli import run_cli
+from letterbox_mcp.mailbox import Mailbox, duplicate_key_message, preflight_for_file
 from letterbox_mcp.render import clip_body, render_check
 from letterbox_mcp.schemas import (
     CHECK_INPUT_SCHEMA,
     CHECK_OUTPUT_SCHEMA,
     CHECK_TOOL_ANNOTATIONS,
+    FILE_INPUT_SCHEMA,
+    FILE_OUTPUT_SCHEMA,
+    FILE_TOOL_ANNOTATIONS,
     READ_INPUT_SCHEMA,
     READ_OUTPUT_SCHEMA,
     READ_TOOL_ANNOTATIONS,
+    REPLY_INPUT_SCHEMA,
+    REPLY_OUTPUT_SCHEMA,
+    REPLY_TOOL_ANNOTATIONS,
+    SEND_INPUT_SCHEMA,
+    SEND_OUTPUT_SCHEMA,
+    SEND_TOOL_ANNOTATIONS,
 )
+from letterbox_mcp.send import default_requires_ack, preflight_send
 
-STAGE_ONE_TOOLS = ("letterbox_check", "letterbox_read")
+STAGE_TOOLS = (
+    "letterbox_check",
+    "letterbox_read",
+    "letterbox_send",
+    "letterbox_reply",
+    "letterbox_file",
+)
+_INPUT_SCHEMAS = {
+    "letterbox_check": CHECK_INPUT_SCHEMA,
+    "letterbox_read": READ_INPUT_SCHEMA,
+    "letterbox_send": SEND_INPUT_SCHEMA,
+    "letterbox_reply": REPLY_INPUT_SCHEMA,
+    "letterbox_file": FILE_INPUT_SCHEMA,
+}
+_OUTPUT_SCHEMAS = {
+    "letterbox_check": CHECK_OUTPUT_SCHEMA,
+    "letterbox_read": READ_OUTPUT_SCHEMA,
+    "letterbox_send": SEND_OUTPUT_SCHEMA,
+    "letterbox_reply": REPLY_OUTPUT_SCHEMA,
+    "letterbox_file": FILE_OUTPUT_SCHEMA,
+}
 
 # Raw resources/read URIs keyed by JSON-RPC id, captured before AnyUrl normalizes.
 # Bounded: SDK validation can reject before the handler pops.
@@ -78,6 +109,27 @@ def build_server(mailbox: Mailbox) -> Server:
                 inputSchema=READ_INPUT_SCHEMA,
                 outputSchema=READ_OUTPUT_SCHEMA,
                 annotations=types.ToolAnnotations(**READ_TOOL_ANNOTATIONS),
+            ),
+            types.Tool(
+                name="letterbox_send",
+                description="Send a letter. Server text always includes id, uri, and ring outcome/reason/target.",
+                inputSchema=SEND_INPUT_SCHEMA,
+                outputSchema=SEND_OUTPUT_SCHEMA,
+                annotations=types.ToolAnnotations(**SEND_TOOL_ANNOTATIONS),
+            ),
+            types.Tool(
+                name="letterbox_reply",
+                description="Reply ack, nack, or result. Ring facts only for result.",
+                inputSchema=REPLY_INPUT_SCHEMA,
+                outputSchema=REPLY_OUTPUT_SCHEMA,
+                annotations=types.ToolAnnotations(**REPLY_TOOL_ANNOTATIONS),
+            ),
+            types.Tool(
+                name="letterbox_file",
+                description="File a non-task letter. Repeat file is success and says already filed.",
+                inputSchema=FILE_INPUT_SCHEMA,
+                outputSchema=FILE_OUTPUT_SCHEMA,
+                annotations=types.ToolAnnotations(**FILE_TOOL_ANNOTATIONS),
             ),
         ]
 
@@ -135,10 +187,10 @@ def build_server(mailbox: Mailbox) -> Server:
 
     async def call_tool(req: types.CallToolRequest) -> types.ServerResult:
         name = req.params.name
-        if name not in STAGE_ONE_TOOLS:
+        if name not in STAGE_TOOLS:
             raise McpError(ErrorData(code=JSONRPC_INVALID_PARAMS, message="unknown tool"))
         arguments = req.params.arguments or {}
-        schema = CHECK_INPUT_SCHEMA if name == "letterbox_check" else READ_INPUT_SCHEMA
+        schema = _INPUT_SCHEMAS[name]
         try:
             jsonschema.validate(instance=arguments, schema=schema)
         except jsonschema.ValidationError as exc:
@@ -147,9 +199,14 @@ def build_server(mailbox: Mailbox) -> Server:
         started = time.monotonic()
         if name == "letterbox_check":
             result = _guard_tool_output(name, _do_check(mailbox))
-            _log(rpc_id, name, None, started, False)
-            return types.ServerResult(result)
-        result = _guard_tool_output(name, _do_read(mailbox, arguments))
+        elif name == "letterbox_read":
+            result = _guard_tool_output(name, _do_read(mailbox, arguments))
+        elif name == "letterbox_send":
+            result = _guard_tool_output(name, _do_send(mailbox, arguments))
+        elif name == "letterbox_reply":
+            result = _guard_tool_output(name, _do_reply(mailbox, arguments))
+        else:
+            result = _guard_tool_output(name, _do_file(mailbox, arguments))
         body_inlined = bool(
             not result.isError
             and isinstance(result.structuredContent, dict)
@@ -215,7 +272,7 @@ def enforce_output_schema(schema: dict, data: dict) -> None:
 def _guard_tool_output(name: str, result: types.CallToolResult) -> types.CallToolResult:
     if result.isError or not isinstance(result.structuredContent, dict):
         return result
-    schema = CHECK_OUTPUT_SCHEMA if name == "letterbox_check" else READ_OUTPUT_SCHEMA
+    schema = _OUTPUT_SCHEMAS[name]
     try:
         enforce_output_schema(schema, result.structuredContent)
     except jsonschema.ValidationError:
@@ -246,6 +303,95 @@ def _do_check(mailbox: Mailbox) -> types.CallToolResult:
         structuredContent=structured,
         isError=False,
     )
+
+
+def _json_result(schema: dict, structured: dict) -> types.CallToolResult:
+    enforce_output_schema(schema, structured)
+    return types.CallToolResult(
+        content=[types.TextContent(type="text", text=dump_structured_json(structured))],
+        structuredContent=structured,
+        isError=False,
+    )
+
+
+def _do_send(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResult:
+    to = arguments["to"]
+    type_name = arguments["type"]
+    subject = arguments["subject"]
+    body = arguments["body"]
+    deadline = arguments.get("deadline") or ""
+    requires_ack = arguments.get("requires_ack")
+    if requires_ack is None:
+        requires_ack = default_requires_ack(type_name)
+    err = preflight_send(
+        root=mailbox._root,
+        agent=mailbox._agent,
+        to=to,
+        type_name=type_name,
+        subject=subject,
+        body=body,
+        requires_ack=requires_ack,
+        deadline=deadline,
+    )
+    if err:
+        return _tool_error(err)
+    args = ["send", to, type_name, subject, "--now"]
+    if requires_ack:
+        args.append("--ack")
+    if deadline:
+        args.extend(["--deadline", deadline])
+    cli = run_cli(mailbox._root, mailbox._agent, args, stdin=body)
+    if not cli.ok:
+        return _tool_error(cli.stderr or "CLI refused")
+    if not cli.letter_id or not cli.ring:
+        return _tool_error("CLI produced no doorbell-outcome")
+    structured = {
+        "id": cli.letter_id,
+        "uri": letter_uri(cli.letter_id),
+        "outcome": cli.ring["outcome"],
+        "reason": cli.ring["reason"],
+        "target": cli.ring["target"],
+    }
+    return _json_result(SEND_OUTPUT_SCHEMA, structured)
+
+
+def _do_reply(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResult:
+    letter_id = arguments["id"]
+    action = arguments["action"]
+    body = arguments["body"]
+    if not is_letter_id(letter_id):
+        return _tool_error(unknown_id_tool_text())
+    args = ["reply", letter_id, action, "reply"]
+    if action == "result":
+        args.append("--now")
+    cli = run_cli(mailbox._root, mailbox._agent, args, stdin=body)
+    if not cli.ok:
+        return _tool_error(cli.stderr or "CLI refused")
+    structured: dict[str, Any] = {"action": action, "id": letter_id}
+    if action == "result":
+        if not cli.ring:
+            return _tool_error("CLI produced no doorbell-outcome")
+        structured.update(cli.ring)
+    return _json_result(REPLY_OUTPUT_SCHEMA, structured)
+
+
+def _do_file(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResult:
+    letter_id = arguments["id"]
+    if not is_letter_id(letter_id):
+        return _tool_error(unknown_id_tool_text())
+    letter = mailbox.get(letter_id, inbox_only=False)
+    if letter is not None:
+        err = preflight_for_file(letter)
+        if err:
+            return _tool_error(err)
+    cli = run_cli(mailbox._root, mailbox._agent, ["file", letter_id])
+    if not cli.ok:
+        return _tool_error(cli.stderr or "CLI refused")
+    done = mailbox.get(letter_id, inbox_only=False)
+    if done is None:
+        return _tool_error("CLI filed but letter is missing")
+    structured = {**done.as_ref(), "already_filed": cli.already_filed}
+    return _json_result(FILE_OUTPUT_SCHEMA, structured)
 
 
 def _do_read(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResult:

@@ -68,7 +68,13 @@ def test_tools_list_stage_one_only(client, mailbox):
     _init(client)
     listed = client.request("tools/list")
     names = [tool["name"] for tool in listed["result"]["tools"]]
-    assert names == ["letterbox_check", "letterbox_read"]
+    assert names == [
+        "letterbox_check",
+        "letterbox_read",
+        "letterbox_send",
+        "letterbox_reply",
+        "letterbox_file",
+    ]
     for tool in listed["result"]["tools"]:
         assert tool["inputSchema"]["additionalProperties"] is False
         assert "outputSchema" in tool

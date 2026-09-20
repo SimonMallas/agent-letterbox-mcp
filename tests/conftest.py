@@ -10,8 +10,9 @@ from tests.harness import AGENT, RpcClient, write_letter
 
 @pytest.fixture
 def mailbox(tmp_path: Path) -> Path:
-    (tmp_path / AGENT / "inbox").mkdir(parents=True)
-    (tmp_path / AGENT / "processed").mkdir(parents=True)
+    for name in (AGENT, "beta"):
+        (tmp_path / name / "inbox").mkdir(parents=True)
+        (tmp_path / name / "processed").mkdir(parents=True)
     return tmp_path
 
 
