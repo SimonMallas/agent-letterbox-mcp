@@ -235,6 +235,8 @@ def test_reply_duplicate_from_refused_byte_identical(client, mailbox):
     assert result["result"]["isError"] is True
     assert "duplicate_key" in _text(result)
     assert _snapshot(mailbox) == before
+    assert (inbox / f"{ident}.md").is_file()
+    assert not list((mailbox / AGENT / "processed").glob(f"{ident}*"))
     assert not list((mailbox / "beta" / "inbox").glob("*.md"))
 
 
@@ -272,6 +274,29 @@ def test_repeat_ack_succeeds_and_says_existed(client, mailbox):
     assert second["result"]["isError"] is False
     assert "ack already existed" in _text(second)
     assert "ring" not in second["result"]["structuredContent"]
+
+
+def test_repeat_ack_different_body_is_collision(client, mailbox):
+    ident = live_id("ackdiff")
+    write_letter(mailbox, ident, "task", type_name="request", deadline="2026-09-21T09:00:00Z")
+    path = mailbox / AGENT / "inbox" / f"{ident}.md"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("requires_ack: false", "requires_ack: true"),
+        encoding="utf-8",
+    )
+    _init(client)
+    first = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "ack", "body": "on it"}},
+    )
+    assert first["result"]["isError"] is False
+    second = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "ack", "body": "different body"}},
+    )
+    assert second["result"]["isError"] is True
+    assert "collision" in _text(second).lower()
+    assert "ring" not in (second["result"].get("structuredContent") or {})
 
 
 def test_repeat_result_already_closed_no_ring(client, mailbox):
