@@ -28,7 +28,14 @@ from letterbox_mcp.constants import (
 from letterbox_mcp.errors import not_found_error, too_large_error, unknown_id_tool_text
 from letterbox_mcp.ids import is_letter_id, letter_uri, parse_letter_uri
 from letterbox_mcp.cli import run_cli
-from letterbox_mcp.mailbox import Mailbox, duplicate_key_message, preflight_for_file
+from letterbox_mcp.mailbox import (
+    Mailbox,
+    derived_reply_body,
+    derived_reply_path,
+    duplicate_key_message,
+    preflight_for_file,
+    preflight_for_reply,
+)
 from letterbox_mcp.render import clip_body, render_check
 from letterbox_mcp.schemas import (
     CHECK_INPUT_SCHEMA,
@@ -371,10 +378,13 @@ def _do_reply(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResu
     letter = mailbox.get(letter_id, inbox_only=False)
     if letter is None:
         return _tool_error(unknown_id_tool_text())
-    err = preflight_for_file(letter)
+    err = preflight_for_reply(letter)
     if err:
         return _tool_error(err)
-    already_acked = letter.state == "acked" and action == "ack"
+    existing = derived_reply_path(mailbox._root, letter, mailbox._agent, action)
+    already_acked = False
+    if action == "ack" and existing is not None:
+        already_acked = derived_reply_body(existing) == body.rstrip("\n")
     args = ["reply", letter_id, action, "reply"]
     if action == "result":
         args.append("--now")

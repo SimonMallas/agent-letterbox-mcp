@@ -6,6 +6,7 @@ import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 from letterbox_mcp.constants import (
     BIDI_CONTROL_CHARS,
@@ -355,6 +356,39 @@ def preflight_for_file(letter: Letter) -> str | None:
     if letter.deadline_over_bound:
         return f"deadline exceeds 256 code points on {letter.id}"
     return None
+
+
+def preflight_for_reply(letter: Letter) -> str | None:
+    """Validate only fields reply uses or the CLI copies. Not priority or deadline."""
+    if letter.duplicate_key:
+        return duplicate_key_message(letter)
+    if _metadata_unrepresentable(letter.from_) or _metadata_unrepresentable(letter.to):
+        return f"unrepresentable metadata on {letter.id}"
+    if letter.thread and (
+        _metadata_unrepresentable(letter.thread) or letter.thread_over_bound
+    ):
+        return f"unrepresentable metadata on {letter.id}"
+    return None
+
+
+def derived_reply_path(root: str, letter: Letter, agent: str, action: str) -> Path | None:
+    name = f"{letter.id}--{agent}--{action}.md"
+    origin = letter.from_
+    if not origin or "/" in origin or origin in (".", ".."):
+        return None
+    for folder in ("inbox", "processed"):
+        path = Path(root) / origin / folder / name
+        if path.is_file():
+            return path
+    return None
+
+
+def derived_reply_body(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return ""
+    return parts[2].lstrip("\n").rstrip("\n")
 
 
 def _frontmatter_lines(header: str) -> list[str]:

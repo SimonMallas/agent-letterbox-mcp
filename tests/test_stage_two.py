@@ -318,6 +318,72 @@ def test_repeat_result_already_closed_no_ring(client, mailbox):
     assert "ring" not in second["result"]["structuredContent"]
 
 
+def test_sidecar_without_durable_ack_is_first_ack(client, mailbox):
+    ident = live_id("sidecaronly")
+    write_letter(mailbox, ident, "task", type_name="request", deadline="2026-09-21T09:00:00Z")
+    path = mailbox / AGENT / "inbox" / f"{ident}.md"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("requires_ack: false", "requires_ack: true"),
+        encoding="utf-8",
+    )
+    (mailbox / AGENT / "inbox" / f"{ident}.md.ack").write_text(
+        "acked_at: 2026-09-20T150000Z\n", encoding="utf-8"
+    )
+    _init(client)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "ack", "body": "on it"}},
+    )
+    assert result["result"]["isError"] is False
+    assert "already existed" not in _text(result)
+    ack_path = mailbox / "beta" / "inbox" / f"{ident}--{AGENT}--ack.md"
+    assert ack_path.is_file()
+
+
+def test_reply_overlong_thread_refused(client, mailbox):
+    ident = live_id("thlong")
+    write_letter(mailbox, ident, "q", type_name="info", thread="t" * 257)
+    _init(client)
+    before = _snapshot(mailbox)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is True
+    assert _snapshot(mailbox) == before
+
+
+def test_reply_ignores_target_deadline_and_priority(client, mailbox):
+    ident = live_id("ignorefields")
+    write_letter(
+        mailbox,
+        ident,
+        "q",
+        type_name="info",
+        deadline="d" * 257,
+        priority="ab\u202ecd",
+    )
+    _init(client)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is False
+
+
+def test_reply_hazardous_from_refused(client, mailbox):
+    ident = live_id("hazfrom")
+    write_letter(mailbox, ident, "q", type_name="info", from_agent="be\x1bta")
+    _init(client)
+    before = _snapshot(mailbox)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is True
+    assert _snapshot(mailbox) == before
+
+
 def test_file_open_task_refused(client, mailbox):
     ident = live_id("task")
     write_letter(mailbox, ident, "work", type_name="request", acked=False, deadline="2026-09-21T09:00:00Z")
