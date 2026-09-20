@@ -384,6 +384,107 @@ def test_reply_hazardous_from_refused(client, mailbox):
     assert _snapshot(mailbox) == before
 
 
+def test_reply_path_from_refused(client, mailbox):
+    _init(client)
+    for origin in ("../beta", "a/b", ".", ".."):
+        ident = live_id("path" + origin.replace("/", "x").replace(".", "d"))
+        write_letter(mailbox, ident, "q", type_name="info", from_agent=origin)
+        before = _snapshot(mailbox)
+        result = client.request(
+            "tools/call",
+            {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+        )
+        assert result["result"]["isError"] is True, origin
+        assert _snapshot(mailbox) == before
+
+
+def test_reply_from_65_refused_33_succeeds(client, mailbox):
+    ident65 = live_id("from65r")
+    write_letter(mailbox, ident65, "q", type_name="info", from_agent="b" * 65)
+    _init(client)
+    before = _snapshot(mailbox)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident65, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is True
+    assert _snapshot(mailbox) == before
+
+    long_ok = "b" * 33
+    (mailbox / long_ok / "inbox").mkdir(parents=True, exist_ok=True)
+    (mailbox / long_ok / "processed").mkdir(parents=True, exist_ok=True)
+    ident33 = live_id("from33r")
+    write_letter(mailbox, ident33, "q", type_name="info", from_agent=long_ok)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident33, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is False
+
+
+def test_reply_ignores_hazardous_to(client, mailbox):
+    ident = live_id("badto")
+    write_letter(mailbox, ident, "q", type_name="info", to_agent="al\x1bpha")
+    _init(client)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is False
+
+
+def test_reply_static_symlink_participant_refused(client, mailbox, tmp_path):
+    ident = live_id("symdir")
+    outside = tmp_path / "outside-bus"
+    (outside / "inbox").mkdir(parents=True)
+    (outside / "processed").mkdir(parents=True)
+    sneak = mailbox / "sneaky"
+    sneak.symlink_to(outside)
+    write_letter(mailbox, ident, "q", type_name="info", from_agent="sneaky")
+    _init(client)
+    before = _snapshot(mailbox)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is True
+    assert _snapshot(mailbox) == before
+
+
+def test_reply_static_symlink_inbox_refused(client, mailbox, tmp_path):
+    ident = live_id("syminbox")
+    outside = tmp_path / "outside-inbox"
+    outside.mkdir()
+    host = mailbox / "sneaky2"
+    host.mkdir()
+    (host / "inbox").symlink_to(outside)
+    (host / "processed").mkdir()
+    write_letter(mailbox, ident, "q", type_name="info", from_agent="sneaky2")
+    _init(client)
+    before = _snapshot(mailbox)
+    result = client.request(
+        "tools/call",
+        {"name": "letterbox_reply", "arguments": {"id": ident, "action": "result", "body": "done"}},
+    )
+    assert result["result"]["isError"] is True
+    assert _snapshot(mailbox) == before
+
+
+def test_derived_reply_id_overflow_refused_all_actions(client, mailbox):
+    ident = ("2026-09-20T150000-beta-info-" + ("x" * 128))[:128]
+    assert len(ident) == 128
+    write_letter(mailbox, ident, "q", type_name="info")
+    _init(client)
+    before = _snapshot(mailbox)
+    for action in ("ack", "nack", "result"):
+        result = client.request(
+            "tools/call",
+            {"name": "letterbox_reply", "arguments": {"id": ident, "action": action, "body": "done"}},
+        )
+        assert result["result"]["isError"] is True, action
+        assert _snapshot(mailbox) == before
+
+
 def test_file_open_task_refused(client, mailbox):
     ident = live_id("task")
     write_letter(mailbox, ident, "work", type_name="request", acked=False, deadline="2026-09-21T09:00:00Z")

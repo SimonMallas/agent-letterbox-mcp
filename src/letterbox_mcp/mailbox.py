@@ -11,12 +11,14 @@ from pathlib import Path
 from letterbox_mcp.constants import (
     BIDI_CONTROL_CHARS,
     ESCAPED_FIELD_MAX,
+    PARTICIPANT_PATTERN,
     STALE_SECONDS,
     TYPE_MAX_CODEPOINTS,
 )
 from letterbox_mcp.ids import is_letter_id, letter_uri
 
 _BIDI_CONTROLS = frozenset(BIDI_CONTROL_CHARS)
+_PARTICIPANT_RE = re.compile(PARTICIPANT_PATTERN)
 
 _FRONTMATTER_RE = re.compile(
     rb"\A---\r?\n(.*?)\r?\n---\r?\n?(.*)\Z",
@@ -358,17 +360,58 @@ def preflight_for_file(letter: Letter) -> str | None:
     return None
 
 
-def preflight_for_reply(letter: Letter) -> str | None:
-    """Validate only fields reply uses or the CLI copies. Not priority or deadline."""
+def preflight_for_reply(
+    letter: Letter, *, root: str, agent: str, action: str
+) -> str | None:
+    """Validate fields reply uses or the CLI copies. Not to, priority, or deadline."""
     if letter.duplicate_key:
         return duplicate_key_message(letter)
-    if _metadata_unrepresentable(letter.from_) or _metadata_unrepresentable(letter.to):
+    if not _participant_name_ok(letter.from_):
+        return f"unrepresentable metadata on {letter.id}"
+    if not _participant_inbox_real(root, letter.from_):
         return f"unrepresentable metadata on {letter.id}"
     if letter.thread and (
         _metadata_unrepresentable(letter.thread) or letter.thread_over_bound
     ):
         return f"unrepresentable metadata on {letter.id}"
+    derived = f"{letter.id}--{agent}--{action}"
+    if not is_letter_id(derived):
+        return f"derived reply id would fail grammar on {letter.id}"
     return None
+
+
+def _participant_name_ok(name: str) -> bool:
+    if _PARTICIPANT_RE.fullmatch(name) is None:
+        return False
+    if _metadata_unrepresentable(name):
+        return False
+    return True
+
+
+def _participant_inbox_real(root: str, name: str) -> bool:
+    """Open participant/inbox relative to the mailbox fd with O_NOFOLLOW."""
+    root_fd = None
+    try:
+        root_fd = _open_dir(root)
+        agent_fd = None
+        try:
+            agent_fd = _open_child_dir(root_fd, name)
+            inbox_fd = None
+            try:
+                inbox_fd = _open_child_dir(agent_fd, "inbox")
+            except OSError:
+                return False
+            finally:
+                _close(inbox_fd)
+        except OSError:
+            return False
+        finally:
+            _close(agent_fd)
+    except OSError:
+        return False
+    finally:
+        _close(root_fd)
+    return True
 
 
 def derived_reply_path(root: str, letter: Letter, agent: str, action: str) -> Path | None:

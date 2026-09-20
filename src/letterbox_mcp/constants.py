@@ -19,6 +19,7 @@ LETTER_TYPES = (
 )
 LETTER_STATES = ("open", "acked", "processed")
 TYPE_MAX_CODEPOINTS = 64
+PARTICIPANT_PATTERN = r"^[a-z][a-z0-9-]*$"
 ESCAPED_FIELD_MAX = 256
 
 # Frozen Bidi_Control set at UCD 16.0.0. Do not derive from unicodedata.

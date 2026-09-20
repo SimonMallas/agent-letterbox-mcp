@@ -5,12 +5,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from letterbox_mcp.constants import TYPE_MAX_CODEPOINTS
+from letterbox_mcp.constants import PARTICIPANT_PATTERN, TYPE_MAX_CODEPOINTS
 from letterbox_mcp.deadline import validate_send_deadline
 SENDABLE_TYPES = ("request", "delegate", "status", "blocker", "info")
 UNSENDABLE_TYPES = ("ack", "nack", "result")
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
-AGENT_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+AGENT_RE = re.compile(PARTICIPANT_PATTERN)
 ID_MAX = 128
 STAMP_LEN = 15  # YYYY-MM-DDTHHMMSS
 SUFFIX_LEN = 8

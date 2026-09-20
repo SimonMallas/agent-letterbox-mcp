@@ -378,7 +378,9 @@ def _do_reply(mailbox: Mailbox, arguments: dict[str, Any]) -> types.CallToolResu
     letter = mailbox.get(letter_id, inbox_only=False)
     if letter is None:
         return _tool_error(unknown_id_tool_text())
-    err = preflight_for_reply(letter)
+    err = preflight_for_reply(
+        letter, root=mailbox._root, agent=mailbox._agent, action=action
+    )
     if err:
         return _tool_error(err)
     existing = derived_reply_path(mailbox._root, letter, mailbox._agent, action)
