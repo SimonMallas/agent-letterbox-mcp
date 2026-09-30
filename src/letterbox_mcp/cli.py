@@ -8,7 +8,6 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-BUS_SH = Path.home() / "tools" / "bus" / "bus.sh"
 RING_LINE = re.compile(
     r"^doorbell-outcome v=1 outcome=(\S+) reason=(\S+) target=(\S+)\s*$"
 )
@@ -37,7 +36,18 @@ def run_cli(
     stdin: str = "",
     timeout: float = 30.0,
 ) -> CliResult:
-    cli = Path(os.environ.get("LETTERBOX_CLI", BUS_SH))
+    configured_cli = os.environ.get("LETTERBOX_CLI")
+    if not configured_cli:
+        return CliResult(
+            ok=False,
+            stdout="",
+            stderr="LETTERBOX_CLI must be explicitly configured",
+            ring=None,
+            letter_id=None,
+            already_filed=False,
+            already_closed=False,
+        )
+    cli = Path(configured_cli)
     env = os.environ.copy()
     env["BUS_DIR"] = str(Path(mailbox_root).resolve())
     env["BUS_AGENT"] = agent
