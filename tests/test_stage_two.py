@@ -232,6 +232,17 @@ def test_relay_reply_refused_byte_identical(client, mailbox):
     assert _snapshot(mailbox) == before
 
 
+def test_relay_file_refused_byte_identical(client, mailbox):
+    ident = live_id("relayfile")
+    write_letter(mailbox, ident, "phone question", type_name="info", from_agent="telegram-bridge")
+    _init(client)
+    before = _snapshot(mailbox)
+    result = client.request("tools/call", {"name": "letterbox_file", "arguments": {"id": ident}})
+    assert result["result"]["isError"] is True
+    assert _text(result) == f"relay letter: reply with alb --reply-to {ident} (the bus cannot transmit)"
+    assert _snapshot(mailbox) == before
+
+
 def test_reply_duplicate_from_refused_byte_identical(client, mailbox):
     ident = live_id("duprep")
     inbox = mailbox / AGENT / "inbox"
