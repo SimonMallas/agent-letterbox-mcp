@@ -353,6 +353,8 @@ def preflight_for_file(letter: Letter) -> str | None:
     """Error text if file must refuse without mutating; None if the CLI may run."""
     if letter.duplicate_key:
         return duplicate_key_message(letter)
+    if letter.from_ == "telegram-bridge":
+        return f"relay letter: reply with alb --reply-to {letter.id} (the bus cannot transmit)"
     if letter.metadata_unrepresentable:
         return f"unrepresentable metadata on {letter.id}"
     if letter.deadline_over_bound:
@@ -366,6 +368,8 @@ def preflight_for_reply(
     """Validate fields reply uses or the CLI copies. Not to, priority, or deadline."""
     if letter.duplicate_key:
         return duplicate_key_message(letter)
+    if letter.from_ == "telegram-bridge":
+        return f"relay letter: reply with alb --reply-to {letter.id} (the bus cannot transmit)"
     if not _participant_name_ok(letter.from_):
         return f"unrepresentable metadata on {letter.id}"
     if not _participant_inbox_real(root, letter.from_):

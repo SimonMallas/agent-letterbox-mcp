@@ -16,6 +16,9 @@ class RpcClient:
     def __init__(self, mailbox: Path):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
+        # Tests exercise mutations against fixture mailboxes, but production must
+        # receive an explicit pinned helper path rather than falling back to live.
+        env.setdefault("LETTERBOX_CLI", str(Path.home() / "tools" / "bus" / "bus.sh"))
         self.proc = subprocess.Popen(
             [sys.executable, "-m", "letterbox_mcp", "--mailbox", str(mailbox), "--agent", AGENT],
             cwd=str(ROOT),
