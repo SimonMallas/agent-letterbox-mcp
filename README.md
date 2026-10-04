@@ -1,6 +1,6 @@
 # Letterbox MCP door
 
-<!-- hero image lands here when chosen: docs/assets/hero.png (Grok candidates pending Simon's pick) -->
+![One mail system, two ways in](docs/assets/hero.png)
 
 Let any MCP host — a desktop app, an IDE, any MCP client — hold an [Agent Letterbox](https://github.com/SimonMallas)
 mailbox as a real participant: check it, read it, send, reply and file. The letters are plain files you already own;
