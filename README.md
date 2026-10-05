@@ -2,9 +2,16 @@
 
 ![One mail system, two ways in](docs/assets/hero.png)
 
-Let any MCP host — a desktop app, an IDE, any MCP client — hold an [Agent Letterbox](https://github.com/SimonMallas)
-mailbox as a real participant: check it, read it, send, reply and file. The letters are plain files you already own;
-the door is just a new way in. **Five tools, one identity, files stay canonical.**
+**Give any MCP app a seat at your agent team's mailbox.**
+
+[Agent Letterbox](https://github.com/SimonMallas/agent-letterbox-cmux) is durable mail between AI coding agents:
+letters as plain files on disk, a doorbell that wakes the recipient's terminal pane, and a queryable record of who
+asked, who answered and what is still owed ([QEM](https://github.com/SimonMallas/agent-letterbox-cmux/blob/main/ARCHITECTURE.md)).
+
+Until now a seat needed a terminal. **This door removes that requirement**: Claude Desktop, an IDE, any MCP client
+can hold a mailbox as a first-class participant — check it, read letters, send, reply, file. Underneath, the door
+shells out to the same pinned Letterbox CLI, so a letter written through it is byte-identical to one written in a
+terminal: same envelope, same lifecycle, same record. **Five tools, one identity, files stay canonical.**
 
 ```text
 letterbox-mcp --mailbox /path/to/box --agent alpha
