@@ -1,0 +1,95 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  body{margin:0;width:1920px;height:840px;background:radial-gradient(1200px 600px at 30% -10%,#ffffff 0%,#f6f3ea 55%,#efe9db 100%);font-family:'Arial Rounded MT Bold','Helvetica Neue',Arial,sans-serif;overflow:hidden}
+  .title{position:absolute;left:0;right:0;top:36px;text-align:center;font-size:52px;color:#101418;letter-spacing:.5px}
+  .sub{position:absolute;left:0;right:0;top:104px;text-align:center;font-size:26px;color:#5b6570}
+  .col-label{font-size:26px;color:#3c454f;text-align:center;margin-bottom:14px;font-weight:700}
+  .terms{position:absolute;left:90px;top:200px;width:430px}
+  .term{background:#14191f;border-radius:14px;padding:14px 18px;margin-bottom:18px;color:#cfe3d2;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+  .term .bar{display:flex;gap:6px;margin-bottom:8px}.dot{width:10px;height:10px;border-radius:50%}
+  .term .name{font-size:24px;color:#f4f7fb;margin-bottom:4px}
+  .term .line{font-family:Menlo,monospace;font-size:16px;color:#7fd18b}
+  .mail{position:absolute;left:775px;top:300px;width:370px;background:#efe9dc;border:3px solid #cdbfa3;border-radius:18px;padding:22px 24px 18px}
+  .mail h3{margin:0 0 4px;font-size:30px;color:#2c333b;text-align:center}
+  .mail .cap{font-size:20px;color:#6b7behind480;color:#6b7480;text-align:center;margin:0 0 14px}
+  .slot{background:#fbf8f2;border:2px solid #d9cdb4;border-radius:10px;padding:9px 12px;margin:7px 0;font-family:Menlo,monospace;font-size:17px;color:#4a5560}
+  .slot b{color:#1d242b}
+  .desk{position:absolute;right:90px;top:330px;width:430px;background:#fcfbf8;border:3px solid #d8d4ca;border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+  .desk .tb{background:#efece4;border-radius:13px 13px 0 0;padding:10px 14px;display:flex;gap:6px}
+  .desk .body{padding:18px 20px;font-size:21px;color:#3c454f;line-height:1.45}
+  .desk .chat{background:#eef3ea;border-radius:10px;padding:10px 12px;margin-top:10px;font-size:19px;color:#2f3a33}
+  svg.wires{position:absolute;inset:0;pointer-events:none}
+  .lbl{position:absolute;font-size:21px;color:#2f6d3f;background:#eaf3ec;border:1.5px solid #9dc3a8;border-radius:999px;padding:7px 16px;white-space:nowrap}
+  .lbl.grey{color:#5b6570;background:#f0efe9;border-color:#c9c4b6}
+  .lbl.red{color:#8a4f3d;background:#f6ece6;border-color:#d8b4a0}
+  .bell{position:absolute;text-align:center;width:150px}
+  .bell .ic{font-size:64px}
+  .bell .t{font-size:20px;color:#2f6d3f;font-weight:700}
+  .foot{position:absolute;left:0;right:0;bottom:30px;text-align:center;font-size:21px;color:#8a9097}
+  body::before{content:'';position:absolute;inset:0;background-image:radial-gradient(#d8d2c2 1.3px,transparent 1.3px);background-size:42px 42px;opacity:.5}
+  .title b{color:#2f6d3f}
+  .term{position:relative}
+  .term .tag{position:absolute;right:14px;top:12px;font-size:14px;letter-spacing:1px;color:#8fa3b8}
+  .term.claude{border-left:6px solid #e8a33d}.term.pi{border-left:6px solid #7fb4ff}.term.codex{border-left:6px solid #8de0a0}
+  .mail{box-shadow:0 10px 30px rgba(120,100,60,.18)}
+  .mail h3 .env{font-size:26px;margin-right:6px}
+  .door{position:absolute;left:1210px;top:380px;width:120px;height:170px;background:linear-gradient(#f8f4ea,#efe6d2);border:4px solid #2c333b;border-radius:12px 12px 4px 4px;box-shadow:0 8px 18px rgba(0,0,0,.18)}
+  .door .plate{position:absolute;left:50%;top:26px;transform:translateX(-50%);background:#2c333b;color:#f4f7fb;font-size:20px;letter-spacing:2px;padding:4px 10px;border-radius:6px}
+  .door .knob{position:absolute;right:10px;top:84px;width:13px;height:13px;border-radius:50%;background:#c9a227;box-shadow:0 0 6px rgba(201,162,39,.8)}
+  .door .light{position:absolute;left:-26px;top:40px;width:22px;height:90px;background:linear-gradient(90deg,rgba(255,232,170,.0),rgba(255,232,170,.75));border-radius:4px}
+  .fly{position:absolute;font-size:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+  .foot{background:#14191f;color:#cfd6dd;left:50%;transform:translateX(-50%);bottom:24px;width:auto;padding:10px 26px;border-radius:999px;font-size:20px;position:absolute;text-align:center}
+</style></head><body>
+  <div class="title">Agent Letterbox — one mail system, <b>two ways in</b></div>
+  <div class="sub">Letters are plain files on disk. Terminal agents get a bell; apps use the MCP door and check their mail.</div>
+
+  <svg class="wires" width="1920" height="840">
+    <defs><marker id="a" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto"><path d="M1,1 L9,5 L1,9" fill="none" stroke="#7aa98a" stroke-width="2"/></marker>
+    <marker id="g" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto"><path d="M1,1 L9,5 L1,9" fill="none" stroke="#c9a227" stroke-width="2"/></marker></defs>
+    <path d="M525,290 C650,300 690,390 770,420" fill="none" stroke="#7aa98a" stroke-width="4" marker-end="url(#a)"/>
+    <path d="M525,450 C650,455 690,470 770,473" fill="none" stroke="#7aa98a" stroke-width="4" marker-end="url(#a)"/>
+    <path d="M525,610 C650,610 690,545 770,526" fill="none" stroke="#7aa98a" stroke-width="4" marker-end="url(#a)"/>
+    <path d="M1152,445 C1185,440 1195,440 1208,445 M1332,450 C1360,440 1370,425 1392,412" fill="none" stroke="#7aa98a" stroke-width="5" marker-end="url(#a)"/>
+    <path d="M1392,480 C1370,492 1360,500 1335,508 M1210,512 C1195,512 1185,510 1152,502" fill="none" stroke="#7aa98a" stroke-width="5" marker-end="url(#a)"/>
+    <path d="M790,300 C740,240 640,225 555,245" fill="none" stroke="#c9a227" stroke-width="4" stroke-dasharray="8 7" marker-end="url(#g)"/>
+  </svg>
+
+  <div class="terms">
+    <div class="col-label">Your coding agents, in terminal panes<br>(cmux · tmux · zellij · Herdr)</div>
+    <div class="term claude"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div><span class="tag">cmux</span>
+      <div class="name">Claude</div><div class="line">$ letterbox send pi request fix-parser</div></div>
+    <div class="term pi"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div><span class="tag">tmux</span>
+      <div class="name">Pi</div><div class="line">📬 doorbell: unacked request — please check</div></div>
+    <div class="term codex"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div><span class="tag">Herdr</span>
+      <div class="name">Codex</div><div class="line">$ letterbox reply … result done</div></div>
+  </div>
+
+  <div class="bell" style="left:600px;top:120px">
+    <div class="ic">🔔</div><div class="t">a letter lands →<br>the bell rings the pane</div></div>
+
+  <div class="mail">
+    <h3><span class="env">✉️</span>The mailboxes</h3>
+    <p class="cap" style="font-size:20px;color:#6b7480;text-align:center;margin:0 0 14px">letters = plain files on disk</p>
+    <div class="slot"><b>claude/inbox/</b> …request-review.md</div>
+    <div class="slot"><b>pi/inbox/</b> …request-fix-parser.md</div>
+    <div class="slot"><b>desktop/inbox/</b> …request-draft.md</div>
+    <div class="slot" style="text-align:center;color:#6b7480">every letter kept · queryable</div>
+  </div>
+
+  <div class="desk">
+    <div class="tb"><span class="dot" style="background:#e0b65f"></span><span class="dot" style="background:#c9c9c9"></span><span class="dot" style="background:#9fb3c4"></span></div>
+    <div class="body"><b>Claude Desktop / IDE</b> — no terminal<br>
+      <div class="chat">“Check my mail” → reads Kimi’s request,<br>acks it, replies with the draft ✓</div>
+    </div>
+  </div>
+
+  <div class="lbl" style="left:580px;top:468px">letterbox CLI</div>
+  <span class="fly" style="left:705px;top:352px">✉️</span>
+  <span class="fly" style="left:688px;top:556px">✉️</span>
+  <span class="fly" style="left:1352px;top:432px">✉️</span>
+  <div class="door"><div class="plate">MCP</div><div class="knob"></div><div class="light"></div></div>
+  <div class="lbl" style="left:1180px;top:566px;font-weight:700">the MCP door · 5 tools</div>
+  <div class="lbl grey" style="left:1430px;top:610px">no bell — it checks its mail</div>
+  <div class="lbl red" style="left:772px;top:645px">same letters, byte-for-byte, whoever wrote them</div>
+
+  <div class="foot">The door is jailed to one mailbox and one identity · files stay canonical · no server, no database</div>
+</body></html>
