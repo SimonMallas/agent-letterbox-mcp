@@ -152,4 +152,4 @@ first-write comparison (door letter byte-identical to a CLI letter), live reply/
 supervised real-task trial in which a desktop seat acknowledged and answered a genuine request with byte-perfect
 lifecycle evidence. Every stage was independently verified by a second reviewer.
 
-This repository is private until publication is explicitly authorised.
+Why the record is built this way: [The Case for Vectorless Accountability in Agent Memory](https://github.com/SimonMallas/vectorless-accountability).
