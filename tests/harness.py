@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+PUBLIC_CLI = ROOT.parent / "agent-letterbox-cmux" / "bin" / "letterbox"
 CANARY = "LETTERBOX_BODY_CANARY_8F29C1"
 AGENT = "alpha"
 
@@ -16,9 +17,11 @@ class RpcClient:
     def __init__(self, mailbox: Path):
         env = os.environ.copy()
         env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
-        # Tests exercise mutations against fixture mailboxes, but production must
-        # receive an explicit pinned helper path rather than falling back to live.
-        env.setdefault("LETTERBOX_CLI", str(Path.home() / "tools" / "bus" / "bus.sh"))
+        # Tests exercise mutations against a published edition in fixture mailboxes.
+        # Production still requires an explicitly configured helper path.
+        env.setdefault("LETTERBOX_CLI", str(PUBLIC_CLI))
+        if not Path(env["LETTERBOX_CLI"]).is_file():
+            raise RuntimeError(f"public Letterbox CLI not found: {env['LETTERBOX_CLI']}")
         self.proc = subprocess.Popen(
             [sys.executable, "-m", "letterbox_mcp", "--mailbox", str(mailbox), "--agent", AGENT],
             cwd=str(ROOT),

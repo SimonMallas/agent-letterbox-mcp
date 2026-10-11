@@ -1,4 +1,4 @@
-"""Invoke the Letterbox CLI. Mailbox root is BUS_DIR; never leak paths."""
+"""Invoke the configured Letterbox CLI without leaking mailbox paths in errors."""
 
 from __future__ import annotations
 
@@ -49,7 +49,10 @@ def run_cli(
         )
     cli = Path(configured_cli)
     env = os.environ.copy()
-    env["BUS_DIR"] = str(Path(mailbox_root).resolve())
+    env["LETTERBOX_DIR"] = str(Path(mailbox_root).resolve())
+    env["LETTERBOX_AGENT"] = agent
+    # Keep compatibility with the private bus helper.
+    env["BUS_DIR"] = env["LETTERBOX_DIR"]
     env["BUS_AGENT"] = agent
     proc = subprocess.run(
         [str(cli), *args],

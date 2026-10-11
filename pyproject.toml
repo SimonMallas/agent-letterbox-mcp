@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "letterbox-mcp"
 version = "0.1.0"
-description = "Read-only MCP view of a Letterbox mailbox. CLI and files stay canonical."
+description = "MCP tools for reading and handling Letterbox letters. CLI and files stay canonical."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }

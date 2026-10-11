@@ -1,0 +1,33 @@
+name: Public Letterbox CLI tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: agent-letterbox-mcp
+      - uses: actions/checkout@v4
+        with:
+          repository: SimonMallas/agent-letterbox-cmux
+          ref: 586a9a2895c7a036f027cf1171eb76822c85c36f
+          path: agent-letterbox-cmux
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install MCP test dependencies
+        working-directory: agent-letterbox-mcp
+        run: python -m pip install -e '.[dev]'
+      - name: Run tests with the published CLI
+        working-directory: agent-letterbox-mcp
+        run: python -m pytest
