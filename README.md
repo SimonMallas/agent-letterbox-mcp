@@ -107,10 +107,12 @@ a dated sibling; record sha256 of both). Add ONE server beside whatever is alrea
 ```json
 "letterbox-live": {
   "command": "/Users/you/letterbox-mcp-<purpose>-<sha8>/.venv/bin/letterbox-mcp",
-  "args": ["--mailbox", "/Users/you/path/to/bus", "--agent", "desktop"],
-  "env": { "LETTERBOX_CLI": "/path/to/pinned/helper/bus.sh" }
+  "args": ["--mailbox", "/Users/you/project/.letterbox", "--agent", "desktop"],
+  "env": { "LETTERBOX_CLI": "/Users/you/.local/share/agent-letterbox-cmux/bin/letterbox" }
 }
 ```
+
+Use the absolute `bin/letterbox` path of the public edition you reviewed and an initialized Letterbox root for `--mailbox`. Private helpers need separate qualification before use with this server.
 
 Restart the host and confirm the server lists exactly **five** tools.
 

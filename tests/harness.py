@@ -19,9 +19,9 @@ class RpcClient:
         env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
         # Tests exercise mutations against a published edition in fixture mailboxes.
         # Production still requires an explicitly configured helper path.
-        env.setdefault("LETTERBOX_CLI", str(PUBLIC_CLI))
-        if not Path(env["LETTERBOX_CLI"]).is_file():
-            raise RuntimeError(f"public Letterbox CLI not found: {env['LETTERBOX_CLI']}")
+        env["LETTERBOX_CLI"] = str(PUBLIC_CLI)
+        if not PUBLIC_CLI.is_file():
+            raise RuntimeError(f"public Letterbox CLI not found: {PUBLIC_CLI}")
         self.proc = subprocess.Popen(
             [sys.executable, "-m", "letterbox_mcp", "--mailbox", str(mailbox), "--agent", AGENT],
             cwd=str(ROOT),
