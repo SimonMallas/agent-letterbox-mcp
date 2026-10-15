@@ -13,15 +13,23 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="letterbox-mcp")
     parser.add_argument(
         "--mailbox",
-        default=os.environ.get("LETTERBOX_DIR"),
         help="Mailbox root (or LETTERBOX_DIR). Stage one tests pass a fixture path.",
     )
     parser.add_argument(
         "--agent",
-        default=os.environ.get("LETTERBOX_AGENT"),
-        help="Mailbox owner (or LETTERBOX_AGENT).",
+        help="Mailbox owner (or LETTERBOX_AGENT)."
     )
     args = parser.parse_args(argv)
+    for attr, primary, legacy in (("mailbox", "LETTERBOX_DIR", "BUS_DIR"),
+                                  ("agent", "LETTERBOX_AGENT", "BUS_AGENT")):
+        if getattr(args, attr):
+            continue
+        value = os.environ.get(primary)
+        if not value:
+            value = os.environ.get(legacy)
+            if value:
+                print(f"letterbox-mcp: {legacy} is deprecated; use {primary}", file=sys.stderr)
+        setattr(args, attr, value)
     if not args.mailbox or not args.agent:
         print("letterbox-mcp: --mailbox/LETTERBOX_DIR and --agent/LETTERBOX_AGENT are required", file=sys.stderr)
         raise SystemExit(2)
